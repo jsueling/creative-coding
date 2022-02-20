@@ -1,0 +1,14 @@
+<html>
+  <body>
+    <canvas width="800" height="800"></canvas>
+    <script>
+      let canvas = document.querySelector('canvas')
+      let context = canvas.getContext('2d')
+      for (let i=0; i < 50; i++) {
+        context.beginPath()
+        context.arc(300, 300,i * 4,Math.PI/2, Math.PI/i*10)
+        context.stroke()
+      }
+    </script>
+  </body>
+</html>

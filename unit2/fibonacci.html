@@ -1,0 +1,28 @@
+<html>
+  <body>
+    <canvas width="800" height="800"></canvas>
+    <script>
+      let canvas = document.querySelector('canvas')
+      let context = canvas.getContext('2d')
+      // for (let i=0; i < 50; i++) {
+      //   context.beginPath()
+      //   context.arc(300, 300,i * 4, Math.E^(Math.PI*-i), Math.PI*-i)
+      //   context.stroke()
+      // }
+      let i = 0
+      let j = 1
+      while (j < 10000) {
+        i += j
+        j += i
+        console.log(i,j)
+        console.log(i*Math.PI, j*Math.PI);
+        context.beginPath()
+        context.arc(300,300, i, Math.PI * i, 0)
+        context.stroke()
+        context.beginPath()
+        context.arc(300,300, j*40, 0,Math.PI/j)
+        context.stroke()
+      }
+    </script>
+  </body>
+</html>
