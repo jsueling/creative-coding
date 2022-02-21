@@ -1,14 +1,14 @@
 const canvasSketch = require('canvas-sketch');
 
 const settings = {
-  dimensions: [ 1080, 1080 ],
+  dimensions: [ 300, 300 ],
   animate: true, // https://github.com/mattdesl/canvas-sketch/blob/master/docs/animated-sketches.md
-  duration: 6, // to change animation speed, change playhead and duration
+  duration: 1.6, // to change animation speed, change playhead and duration
 };
 // https://github.com/mattdesl/canvas-sketch/blob/master/docs/exporting-artwork.md*/
 const sketch = () => {
   return ({ context, width, height, playhead }) => {
-    const sequence = Math.round(playhead * 30)
+    const sequence = Math.round(playhead * 30) // playhead varies from 0..1 depending on fixed loop duration (in settings)
     const w = width/18
     const h = height/18
     const g = width/18 - h*(8/9)
@@ -31,15 +31,15 @@ const sketch = () => {
          * if ((i-j) % 3 == 0 && i !== j)
          * if ((i+j) % 3 == 0)
          */
-        if (i == 0 && j == 0) {
+        if (i == 0 && j == 0) { // bug at 0,0
           if (sequence === 2) {
             context.beginPath()
-            context.arc(x+w/2,y+w/2,g*4,0,2*pi)
+            context.arc(x+w/2,y+w/2,g*2,0,2*pi)
             context.fill()
           }
-        } else if (sequence !== 1 && (i+j) % sequence == 0) { // draws circles in all squares in this quadrant
-          context.beginPath()
-          context.arc(x+w/2,y+w/2,g*4,0,2*pi)
+        } else if (sequence !== 1 && (i+j) % sequence == 0) { // draws circles depending on: sequence 0,30 (rounded playhead 0..1 * 30) and position i,j
+          context.beginPath()                                 // Top left and bot right only draw circles when i+j % sequence == 0
+          context.arc(x+w/2,y+w/2,g*2,0,2*pi)
           context.fill()
         }
       }
@@ -53,7 +53,7 @@ const sketch = () => {
         context.stroke()
         if (sequence !== 1 && (i+j) % sequence == 0) {
           context.beginPath()
-          context.arc(x+w/2,y+w/2,g*4,0,2*pi)
+          context.arc(x+w/2,y+w/2,g*2,0,2*pi)
           context.fill()
         }
       }
@@ -65,10 +65,10 @@ const sketch = () => {
         context.beginPath()
         context.rect(x,y,w,h)
         context.stroke()
-        if ((i+j) % sequence > 0) { // fills with circle unless (i+j) equals sequence, thus not drawing a circle
+        if ((i+j) % sequence > 0) { // fills square with circle unless (i+j) % sequence == 0, thus not drawing a circle
           context.beginPath()
           context.fillStyle = 'white'
-          context.arc(x+w/2,y+w/2,g*4,0,2*pi)
+          context.arc(x+w/2,y+w/2,g*2,0,2*pi)
           context.fill()
         }
       }
@@ -83,7 +83,7 @@ const sketch = () => {
         if ((i+j) % sequence > 0) { // same above
           context.beginPath()
           context.fillStyle = 'white'
-          context.arc(x+w/2,y+w/2,g*4,0,2*pi)
+          context.arc(x+w/2,y+w/2,g*2,0,2*pi)
           context.fill()
         }
       }
