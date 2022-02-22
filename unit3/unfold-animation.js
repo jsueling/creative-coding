@@ -12,13 +12,12 @@ const settings = {
 const sketch = () => {
   return ({ context, width, height, playhead }) => {
 		const playheadFactor = 2
-		const radiusFactor = 0.5
+		const radiusFactor = 0.7
     const circleAnimation = playhead*playheadFactor
-		// TODO add color
-		context.fillStyle = 'white';
+		context.fillStyle = 'black';
 		context.fillRect(0, 0, width, height);
 
-		context.fillStyle = 'black';
+		context.fillStyle = 'white';
 
 		const cx = width  * 0.5;
 		const cy = height * 0.5;
@@ -28,12 +27,17 @@ const sketch = () => {
 		let x, y;
 
 		const num = 40;
-		let radius = circleAnimation < playheadFactor/2 ? width * radiusFactor * (0.5**(circleAnimation)) : width * radiusFactor * (0.5**(playheadFactor-circleAnimation));
+		let radius = circleAnimation < playheadFactor/2 ? width * radiusFactor * (0.3**(circleAnimation)) : width * radiusFactor * (0.3**(playheadFactor-circleAnimation));
 		if (circleAnimation < 1) {
 			for (let i = 0; i < num; i++) {
 				const slice = math.degToRad(360 / num);
 				const angle = slice * i;
-	
+				// https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/fillStyle#creating_multiple_fill_colors_using_loops
+				if (i % 5 == 0 ) {
+					context.fillStyle = 'white'
+				} else {
+					context.fillStyle = 'hsl(230, 93%, 77%)'
+				}
 				x = cx + radius * Math.sin(angle*circleAnimation);
 				y = cy + radius * Math.cos(angle*circleAnimation);
 	
@@ -41,7 +45,7 @@ const sketch = () => {
 				context.translate(x, y);
 				context.rotate(-angle);
 				context.beginPath();
-				context.rect(-w * 0.5, -h * 0.5, w, h);
+				context.rect(-w * 0.5, -h * 0.5, w/2.5, h*3);
 				context.fill();
 				context.restore();
 	
@@ -55,10 +59,14 @@ const sketch = () => {
 			}
 		} else {
 			for (let i = 0; i < num; i++) {
-				radius = width * radiusFactor/2
+				radius = width * 0.3 * radiusFactor
 				const slice = math.degToRad(360 / num);
 				const angle = slice * i;
-	
+				if (i % 5 == 0) {
+					context.fillStyle = 'white'
+				} else {
+					context.fillStyle = 'hsl(230, 93%, 77%)'
+				}
 				x = cx + radius * Math.sin(angle);
 				y = cy + radius * Math.cos(angle);
 	
@@ -66,7 +74,7 @@ const sketch = () => {
 				context.translate(x, y);
 				context.rotate(-angle);
 				context.beginPath();
-				context.rect(-w * 0.5, -h * 0.5, w, h);
+				context.rect(-w * 0.5, -h * 0.5, w/2.5, h*3);
 				context.fill();
 				context.restore();
 	
