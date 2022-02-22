@@ -1,5 +1,6 @@
 const canvasSketch = require('canvas-sketch');
 const random = require('canvas-sketch-util/random')
+const math = require('canvas-sketch-util/math')
 
 const settings = {
   dimensions: [ 1080, 1080 ],
@@ -31,6 +32,25 @@ const sketch = ({ context, width, height }) => {
     context.fillStyle = 'white';
     context.fillRect(0, 0, width, height);
 
+    for (let i=0; i < agents.length; i++) {
+      const agent = agents[i]
+
+      for (let j=i+1; j < agents.length; j++) {
+        const other = agents[j]
+
+        const dist = agent.pos.getDistance(other.pos)
+
+        if (dist > 200) continue
+
+        context.lineWidth = math.mapRange(dist, 0, 200, 12, 1)
+
+        context.beginPath()
+        context.moveTo(agent.pos.x, agent.pos.y)
+        context.lineTo(other.pos.x, other.pos.y)
+        context.stroke()
+      }
+    }
+
     agents.forEach(agent => { // for each agent on single frame
       agent.update() // each agents pos.x,pos.y position changes by vel.x,vel.y velocity
       agent.bounce(width, height) // inverts velocity if new point is out of bounds
@@ -45,6 +65,12 @@ class Vector {
   constructor(x, y) {
     this.x = x
     this.y = y
+  }
+  
+  getDistance(v) {
+    const dx = this.x - v.x
+    const dy = this.y - v.y
+    return Math.sqrt(dx**2 + dy**2)
   }
 }
 
