@@ -27,12 +27,14 @@ const sketch = ({ context, width, height }) => {
   for (let i=0; i < numAgents; i++) {
     const slice = math.degToRad(360/numAgents)
     const angle = slice*i
-    const radius = width*0.3
+    const radius = width*0.01
     // const x = random.range(0, width)
     // const y = random.range(0, height)
     x = cx + radius * Math.sin(angle);
     y = cy + radius * Math.cos(angle);
-    agents.push(new Agent(x, y))
+    const velx = Math.sin(angle) // radius 1, find cartesian point in unit circle to get velocities
+    const vely = Math.cos(angle)
+    agents.push(new Agent(x, y, velx, vely))
   }
 
   return () => {
@@ -49,7 +51,7 @@ const sketch = ({ context, width, height }) => {
 
         if (dist > 100) continue
 
-        context.lineWidth = math.mapRange(dist, 0, 100, 12, 1)
+        context.lineWidth = math.mapRange(dist, 0, 100, 12, 0.5) // 1
 
         context.beginPath()
         context.moveTo(agent.pos.x, agent.pos.y)
@@ -60,8 +62,8 @@ const sketch = ({ context, width, height }) => {
 
     agents.forEach(agent => { // for each agent on single frame
       agent.update() // each agents pos.x,pos.y position changes by vel.x,vel.y velocity
-      // agent.bounce(width, height) // inverts velocity if new point is out of bounds
-      agent.wrap(width, height) // wraps when leaving the screen
+      agent.bounce(width, height) // inverts velocity if new point is out of bounds
+      // agent.wrap(width, height) // wraps when leaving the screen
       agent.draw(context, width, height) // redraws the point with updated pos.x,pos.y
     })
   };
@@ -83,10 +85,11 @@ class Vector {
 }
 
 class Agent {
-  constructor(x, y) {
+  constructor(x, y, velx, vely) {
     this.pos = new Vector(x, y)
-    this.vel = new Vector(random.range(-1,1), random.range(-1, 1))
-    this.radius = random.range(4, 12)
+    this.vel = new Vector(velx, vely)
+    // this.vel = new Vector(random.range(-1,1), random.range(-1, 1))
+    this.radius = 8 // random.range(4, 12)
   }
 
   bounce(width, height) {
