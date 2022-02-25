@@ -18,12 +18,20 @@ const params = {
   animate: true,
   frame: 0,
   lineCap: 'butt',
+  background: { r: 0, g: 0, b: 0 },
+  lineColour: { r: 255, g: 255, b: 255 },
+  offset: { x: 0, y: 0 },
 }
 
 const sketch = () => {
   return ({ context, width, height, frame }) => {
-    context.fillStyle = 'white';
+    // https://dmitripavlutin.com/javascript-object-destructuring/
+    const { r: r_bg, g: g_bg, b: b_bg } = params.background
+    const { r: r_l, g: g_l, b: b_l } = params.lineColour
+
+    context.fillStyle = `rgb(${r_bg},${g_bg},${b_bg})`;
     context.fillRect(0, 0, width, height);
+    context.strokeStyle = `rgb(${r_l},${g_l},${b_l})`;
 
     const cols = params.cols
     const rows = params.rows
@@ -61,7 +69,7 @@ const sketch = () => {
       context.save()
       // translate context to the centre of each grid cell to draw
       // factoring in margin
-      context.translate(x + margx + cellw * 0.5, y + margy + cellh * 0.5)
+      context.translate(x + margx + cellw * 0.5 + params.offset.x, y + margy + cellh * 0.5 + params.offset.y)
       context.rotate(angle)
       context.lineWidth = scale
       context.lineCap = params.lineCap
@@ -78,20 +86,73 @@ const sketch = () => {
 
 const createPane = () => {
   const pane = new Tweakpane.Pane()
-  let folder
 
-  folder = pane.addFolder({ title: 'Grid' })
-  folder.addInput(params, 'lineCap', { options: { butt: 'butt', round: 'round', square: 'square '} })
-  folder.addInput(params, 'cols', { min: 2, max: 50, step: 1 })
-  folder.addInput(params, 'rows', { min: 2, max: 50, step: 1 })
-  folder.addInput(params, 'scaleMin', { min: 1, max: 100 })
-  folder.addInput(params, 'scaleMax', { min: 1, max: 100 })
+  const tab = pane.addTab({
+    pages: [
+      {title: 'Customize'},
+      {title: 'Import/Export'}
+    ]
+  })
 
-  folder = pane.addFolder({ title: 'Noise' })
-  folder.addInput(params, 'freq', { min: -0.01, max: 0.01 })
-  folder.addInput(params, 'amp', { min: 0, max: 1 })
-  folder.addInput(params, 'animate')
-  folder.addInput(params, 'frame', { min: 0, max: 999, step: 1 })
+  /**
+   * A nice addition to Tweakpane would be to save presets on the fly, then import them from a dropdown list,
+   * or perhaps just have an import input that you can paste exported presets into
+   */
+
+  // tab.pages[1].addInput(params, 'preset')
+
+  // const importPreset = tab.pages[1].addButton({
+  //   title: 'import'
+  // })
+
+  // importPreset.on('click', function(e) {
+  //   console.log(e);
+  //   // pane.importPreset(preset) // receives preset as input, imports that input as preset
+  // })
+
+  const exportPreset = tab.pages[0].addButton({
+    title: 'export'
+  })
+
+  exportPreset.on('click', function() {
+    console.log(pane.exportPreset());
+  });
+
+  const gridFolder = tab.pages[0].addFolder({ title: 'Grid' })
+
+  gridFolder.addInput(params, 'lineCap', { options: { butt: 'butt', round: 'round', square: 'square '} })
+  gridFolder.addInput(params, 'cols', { min: 2, max: 50, step: 1 })
+  gridFolder.addInput(params, 'rows', { min: 2, max: 50, step: 1 })
+  gridFolder.addInput(params, 'scaleMin', { min: 1, max: 100 })
+  gridFolder.addInput(params, 'scaleMax', { min: 1, max: 100 })
+  gridFolder.addInput(params, 'offset', {
+    x: { step: 50 },
+    y: { step: 50 },
+    picker: 'inline',
+    expanded: true,
+  })
+
+  // folder.on('change', function(ev) {
+  //   console.log(`change: ${ev.value}`);
+  // });
+
+  const colourFolder = tab.pages[0].addFolder({ title: 'Colour' })
+
+  colourFolder.addInput(params, 'background', {
+    picker: 'inline',
+    expanded: true,
+  });
+  colourFolder.addInput(params, 'lineColour', {
+    picker: 'inline',
+    expanded: true,
+  });
+
+  const noiseFolder = tab.pages[0].addFolder({ title: 'Noise' })
+
+  noiseFolder.addInput(params, 'freq', { min: -0.01, max: 0.01 })
+  noiseFolder.addInput(params, 'amp', { min: 0, max: 1 })
+  noiseFolder.addInput(params, 'animate')
+  noiseFolder.addInput(params, 'frame', { min: 0, max: 999, step: 1 })
 }
 
 createPane()
