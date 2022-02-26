@@ -1,6 +1,7 @@
 const canvasSketch = require('canvas-sketch');
 const random = require('canvas-sketch-util/random');
 const math = require('canvas-sketch-util/math');
+const { Pane } = require('Tweakpane')
 
 const settings = {
 	dimensions: [ 1080, 1080 ],
@@ -13,20 +14,25 @@ const animate = () => {
 };
 // animate();
 
+const params = {
+	radius: 10,
+	innerColour: { r: 0, g: 0, b: 0 }
+}
+
 const sketch = ({ context, width, height }) => {
 	const agents = [];
 
-	for (let i = 0; i < 40; i++) {
+	for (let i = 0; i < 3; i++) {
 		const x = random.range(0, width);
 		const y = random.range(0, height);
 
-		agents.push(new Agent(x, y));
+		agents.push(new Agent(x, y, params.radius));
 	}
 
 	return ({ context, width, height }) => {
-		context.fillStyle = 'white';
+		context.fillStyle = 'black';
 		context.fillRect(0, 0, width, height);
-
+		context.strokeStyle = 'white'
 		for (let i = 0; i < agents.length; i++) {
 			const agent = agents[i];
 
@@ -35,13 +41,15 @@ const sketch = ({ context, width, height }) => {
 
 				const dist = agent.pos.getDistance(other.pos);
 
-				if (dist > 200) continue;
+				// if (dist > 200) continue;
 
-				context.lineWidth = math.mapRange(dist, 0, 200, 12, 1);
+				context.lineWidth = 5 // math.mapRange(dist, 0, 200, 5, 0.00001);
 
 				context.beginPath();
-				context.moveTo(agent.pos.x, agent.pos.y);
-				context.lineTo(other.pos.x, other.pos.y);
+				context.arc(agent.pos.x,agent.pos.y,dist,0,2*Math.PI);
+				context.stroke()
+				context.beginPath()
+				context.arc(other.pos.x,other.pos.y,dist,0,2*Math.PI);
 				context.stroke();
 			}
 		}
@@ -54,6 +62,20 @@ const sketch = ({ context, width, height }) => {
 	};
 };
 
+const createPane = () => {
+	const pane = new Pane()
+
+	const settings = pane.addFolder({ title: 'Settings' })
+	settings.addInput(params, 'radius', {
+		min: 1, max:100, step: 1
+	})
+	settings.addInput(params, 'innerColour')
+	// settings.addInput(params, 'numAgents', {
+	// 	label: 'number of agents', min: 1, max: 100, step: 1
+	// }))
+}
+
+createPane()
 canvasSketch(sketch, settings);
 
 class Vector {
@@ -90,11 +112,11 @@ class Agent {
 		context.save();
 		context.translate(this.pos.x, this.pos.y);
 
+		const { r: ri, g: gi, b: bi } = params.innerColour
 		context.lineWidth = 4;
-
+		context.strokeStyle = `rgb(${ri},${gi},${bi})`
 		context.beginPath();
-		context.arc(0, 0, this.radius, 0, Math.PI * 2);
-		context.fill();
+		context.arc(0, 0, params.radius, 0, Math.PI * 2);
 		context.stroke();
 
 		context.restore();
