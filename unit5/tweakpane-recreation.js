@@ -9,11 +9,11 @@ const settings = {
 };
 
 const params = {
-  cols: 50,
-  rows: 50,
-  freq: 0.0017,
-  amp: 1,
-  radius: 20,
+  cols: 100,
+  rows: 100,
+  freq: 0.00159,
+  amp: 0.243,
+  radius: 3,
   backgroundCol: { r: 0, g: 0, b: 0 },
   foregroundCol: { r: 255, g: 255, b: 255 }
 }
@@ -49,11 +49,11 @@ const sketch = () => {
       const x = col * (2 * radius + margx)
       const y = row * (2 * radius + margy)
 
-      const n = random.noise2D(x, y, frame * params.freq/3000, params.amp) // -1, 1
+      const n = random.noise2D(x, y, frame * params.freq/1500, params.amp) // -1, 1
       const scale = math.mapRange(n, -1, 1, -radius, radius)
 
       context.save()
-      context.translate(x, y)
+      context.translate(x + n, y* n) // (x, y) (x*n + 100*n, y + n)
       context.beginPath()
       context.arc(0, 0, scale + radius, 0, 2 * Math.PI)
       context.fill()
@@ -71,8 +71,8 @@ const createPane = () => {
   gridFolder.addInput(params, 'radius', { min: 1, max: 50 })
 
   const noiseFolder = pane.addFolder({ title: 'Noise' })
-  noiseFolder.addInput(params, 'freq', { min: -0.01, max: 0.01, step: 0.0001 })
-  noiseFolder.addInput(params, 'amp', { min: 0, max: 1 })
+  noiseFolder.addInput(params, 'freq', { min: 0, max: 0.01, step: 0.00001 })
+  noiseFolder.addInput(params, 'amp', { min: 0, max: 1, step: 0.001 })
 
   const colourFolder = pane.addFolder({ title: 'Colour' })
   colourFolder.addInput(params, 'backgroundCol', {
