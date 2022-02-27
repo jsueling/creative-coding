@@ -18,7 +18,7 @@ const sketch = () => {
 
     context.fillStyle = 'black'
     context.font = `${fontSize}px ${fontFamily}` // fontSize + 'px' + fontFamily
-    context.textBaseline = 'middle'
+    context.textBaseline = 'bot'
     context.textAlign = 'center'
 
     const metrics = context.measureText(text)
@@ -30,8 +30,9 @@ const sketch = () => {
     const x = (width - mw) * 0.5 - mx
     const y = (height - mh) * 0.5 - my
 
+    console.log(mx, my);
     context.save()
-    context.translate(x, y)
+    context.translate(width/2, height/2)  //x, y)
 
     context.lineWidth = 5
     context.beginPath()
@@ -45,6 +46,7 @@ const sketch = () => {
 
 const onKeyUp = (e) => {
   if (e.key == 'Backspace') text.pop()
+  // else if (e.key == 'Enter') text.push('\n')
   else if (e.key.length === 1) text.push(e.key)
   manager.render()
 
@@ -53,7 +55,7 @@ const onKeyUp = (e) => {
   timeoutID = setTimeout(() => { // in 3 seconds, clears text and rerenders
     text = []
     manager.render()
-  }, 3000)
+  }, 2000)
 }
 
 document.addEventListener('keyup', onKeyUp);
