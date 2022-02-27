@@ -7,7 +7,7 @@ const settings = {
 let manager
 
 let text = []
-let fontSize = 200
+let fontSize = 1200
 let fontFamily = 'serif'
 let timeoutID
 
