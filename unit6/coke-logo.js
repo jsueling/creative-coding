@@ -58,23 +58,46 @@ const sketch = ({ context, width, height }) => {
 			let b = typeData[i * 4 + 2];
 			// let a = typeData[i * 4 + 3];
 
-      context.fillStyle = `rgb(${r},${g},${b})`
+      context.fillStyle = 'white' //`rgb(${r},${g},${b})`
       context.save()
 
       context.translate(x, y) // translate context to top-left corner
-      context.translate(cell * 0.5, cell * 0.5) // then to mid
+      // context.translate(cell * 0.5, cell * 0.5) // then to mid
 
       // context.fillText(getGlyph(i % 9), 0, 0); // mid centered glyph
 
-      context.beginPath() // mid centered circles
-      context.arc(0,0,cell/2,0,2*Math.PI)
-      context.fill()
+      // context.beginPath() // mid centered circles
+      // context.arc(0,0,cell/2,0,2*Math.PI)
+      // context.fill()
 
       // context.translate(-cell * 0.25, -cell * 0.25) // white centered square pixels
       // context.fillStyle = `rgb(${255},${255},${255})`
       // context.fillRect(0, 0, cell/2,cell/2)
 
-      // context.fillRect(0, 0, cell, cell) // pixelated squares
+      context.fillRect(0, 0, cell, cell) // pixelated squares
+
+      // diamond
+      context.fillStyle = `rgb(${r},${g},${b})` // 'white' 
+      context.beginPath()
+      context.moveTo(0, 0)
+      context.lineTo(0, cell)
+      context.lineTo(cell/2, cell)
+      context.fill()
+      context.beginPath()
+      context.moveTo(cell, cell)
+      context.lineTo(cell, 0)
+      context.lineTo(cell/2, cell)
+      context.fill()
+      context.beginPath()
+      context.moveTo(cell, 0)
+      context.lineTo(cell/2, 0)
+      context.lineTo(cell, cell)
+      context.fill()
+      context.beginPath()
+      context.moveTo(0, 0)
+      context.lineTo(cell/2, 0)
+      context.lineTo(0, cell)
+      context.fill()
 
       context.restore()
     }
@@ -83,7 +106,7 @@ const sketch = ({ context, width, height }) => {
 
 const createPane = () => {
   const pane = new Pane()
-  pane.addInput(params, 'pixels', { min: 5, max: 540, step: 1 }).on('change', (() => manager.render())) // rerender on slider
+  pane.addInput(params, 'pixels', { min: 5, max: 540, step: 1 }) // .on('change', (() => manager.render())) // rerender on slider
 }
 
 const getGlyph = (i) => {
