@@ -3,11 +3,12 @@ const { Pane } = require('tweakpane')
 
 const settings = {
   dimensions: [ 1080, 1080 ],
-  animate: true
+  animate: true,
 };
 
 const params = {
-  pixels: 540
+  pixels: 540,
+  speed: 1
 }
 
 let manager // sketchManager https://github.com/mattdesl/canvas-sketch/blob/master/docs/api.md#sketchmanager
@@ -26,7 +27,13 @@ const sketch = ({ context, width, height }) => {
   // context.textAlign = 'center';
   // context.font = `${fontSize}px ${fontFamily}`;
 
-  return () => {
+  return ({ time }) => {
+
+    // const wrapPlayhead = Math.sin(playhead * Math.PI) // 0 -> 0.99 -> 0, ... https://github.com/mattdesl/canvas-sketch/blob/master/docs/animated-sketches.md
+ 
+    // implementation of playhead
+    const playhead = time / params.speed % 1 // 0 -> 1, 0 -> 1, ...
+
     context.fillStyle = 'white'; // clear previous renders
     context.fillRect(0, 0, width, height);
 
@@ -53,9 +60,26 @@ const sketch = ({ context, width, height }) => {
       const x = col * cell // get x,y from row,col * cell size
       const y = row * cell
 
-      let r = typeData[i * 4 + 0];
-			let g = typeData[i * 4 + 1];
-			let b = typeData[i * 4 + 2];
+      // bug, i at end of col gets rgb from start of next row
+      // resulting in upward animation
+      // intention is for a continuous loop isolated to a row
+
+      let r_index = i * 4 + 0
+      let g_index = i * 4 + 1
+      let b_index = i * 4 + 2
+
+      /*
+      |  r  1  2  3 |  4  5  6  7 |  8  9 10 11 | 12 13 14 15 | 16 17 18 19 | 20 21 22 23 | 24 25 26 27 | 28 29 30 31 |
+      | 32 33 34 35 | 36 37 38 39 | 40 41 42 43 | 44 45 46 47 | 48 49 50 51 | 52 53 54 55 | 56 57 58 59 | 60 61 62 63 |
+      */
+      let colourTransition = Math.round((cols-1) * playhead) * 4 // varies from 0 to cols-1 infront, multiply by 4 to get the r 4,8,12 in front
+
+      // colourTransition % (cols * 4) + position at beginning of row
+      const beginRow = row * cols * 4
+
+      let r = typeData[(r_index + colourTransition) % (cols * 4) + beginRow];
+			let g = typeData[(b_index + colourTransition) % (cols * 4) + beginRow];
+			let b = typeData[(g_index + colourTransition) % (cols * 4) + beginRow];
 			// let a = typeData[i * 4 + 3];
 
       context.fillStyle = 'white' //`rgb(${r},${g},${b})`
@@ -107,6 +131,7 @@ const sketch = ({ context, width, height }) => {
 const createPane = () => {
   const pane = new Pane()
   pane.addInput(params, 'pixels', { min: 5, max: 540, step: 1 }) // .on('change', (() => manager.render())) // rerender on slider
+  pane.addInput(params, 'speed', { min: 0.1, max: 20, step: 0.1 })
 }
 
 const getGlyph = (i) => {
