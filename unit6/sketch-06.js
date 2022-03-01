@@ -1,16 +1,25 @@
 const canvasSketch = require('canvas-sketch');
 const random = require('canvas-sketch-util/random')
+const math = require('canvas-sketch-util/math')
+const { Pane } = require('tweakpane')
 
 const settings = {
-  dimensions: [ 1080, 1080 ]
+  dimensions: [ 1080, 1080 ],
+  animate: true
 };
+
+const params = {
+  glyphs: '.:_°-',
+  speed: 600,
+  freq: 2,
+  text: 'A'
+}
 
 let manager
 
-let text = 'A' // []
+let text
 let fontSize = 1200
 let fontFamily = 'serif'
-// let timeoutID
 
 const typeCanvas = document.createElement('canvas')
 const typeContext = typeCanvas.getContext('2d')
@@ -24,10 +33,10 @@ const sketch = ({ context, width, height }) => {
   typeCanvas.width = cols
   typeCanvas.height = rows
 
-  return () => { // render function
+  return ({ time }) => { // render function
     typeContext.fillStyle = 'black';
     typeContext.fillRect(0, 0, width, height);
-
+    text = params.text // always update text to be the input parameter
     fontSize = cols * 1.2
 
     typeContext.fillStyle = 'white'
@@ -79,10 +88,9 @@ const sketch = ({ context, width, height }) => {
       const b = typeData[i * 4 + 2]
       // const a = typeData[i * 4 + 3]
 
-      const glyph = getGlyph(r) // only need to pass r for alternating between black and white
+      const glyph = getGlyph(r, time) // only need to pass r for alternating between black and white, also time
 
       context.font = `${cell * 2}px ${fontFamily}`
-      if (Math.random() < 0.1) context.font = `${cell * 6}px ${fontFamily}`
 
       context.fillStyle = 'white'
 
@@ -105,15 +113,34 @@ const sketch = ({ context, width, height }) => {
   };
 };
 
-const getGlyph = (v) => { // v 0-255
-  if (v < 50) return ''
-  if (v < 100) return '.'
-  if (v < 150) return '-'
-  if (v < 200) return '+'
+const createPane = () => {
+  const pane = new Pane()
+  pane.addInput(params, 'glyphs')
+  pane.addInput(params, 'speed', { min: 1, max: 1000, step: 1 })
+  pane.addInput(params, 'freq', { min: 0.1, max: 100, step: 0.1 })
+  pane.addInput(params, 'text').on('change', changeText)
+}
 
-  const glyphs = '_= /'.split('')
+const changeText = (e) => {
+  params.text = e.value
+  manager.render()
+}
 
-  return random.pick(glyphs)
+const getGlyph = (v, time) => { // v 0-255
+  // if (v < 50) return ''
+
+  // .:_°- good combination of glyphs
+
+  const playhead = time / params.speed % 1
+
+  // const wrapPlayhead = Math.sin(playhead * Math.PI)
+
+  const glyphs = params.glyphs.split('')
+
+  const noise = random.noise1D(v * playhead, params.freq, 1) // pass in v 0-255 * playhead so varies with time, returns noise -1 through 1
+  const i = Math.round(math.mapRange(noise, -1, 1, 0, (glyphs.length - 1))) // maps to rounded index of the glyphs array
+
+  return glyphs[i]
 }
 
 const onKeyUp = (e) => {
@@ -130,7 +157,9 @@ const onKeyUp = (e) => {
   // }, 3000)
 }
 
-document.addEventListener('keyup', onKeyUp);
+createPane()
+
+// document.addEventListener('keyup', onKeyUp);
 
 const start = async () => {
   manager = await canvasSketch(sketch, settings);
