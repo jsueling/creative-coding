@@ -1,7 +1,9 @@
 const canvasSketch = require('canvas-sketch');
+const math = require('canvas-sketch-util/math')
 
 const settings = {
-  dimensions: [ 1080, 1080 ]
+  dimensions: [ 1080, 1080 ],
+	animate: true
 };
 
 const typeCanvas = document.createElement('canvas');
@@ -50,23 +52,56 @@ const sketch = ({ context, width, height }) => {
 		const b = typeData[i * 4 + 2];
 		// const a = typeData[i * 4 + 3] // rgba alpha
 
-		context.fillStyle = `rgb(${r}, ${g}, ${b})` // colour each cell using typeData
-
 		if (r === 0 &&  g === 0 && b === 0) continue // don't need to render black agents on black
 
-		agents.push(new Agent(x, y, cell/2, { r, g, b }))
+		// x,y are top left corner coordinates, add cell/2 to translate to centre
+
+		const midX = x + cell/2
+		const midY = y + cell/2
+
+		const hyp = Math.sqrt(Math.abs(width/2 - midX)**2 + Math.abs(height/2 - midY)**2)
+		const adj = Math.abs(width/2 - midX)
+
+		let angleFromMid = Math.acos(adj/hyp) // in radians
+
+		// quadrants
+		if (midX > width/2 && midY <= height/2) { // top right
+			// pass
+		}
+		else if (midX <= width/2 && midY <= height/2) { // top left
+			angleFromMid = Math.PI - angleFromMid
+		}
+		else if (midX <= width/2 && midY > height/2) { // bot left
+			angleFromMid += Math.PI
+		}
+		else if (midX > width/2 && midY > height/2) { // bot right
+			angleFromMid *= -1
+		}
+
+		const velx =  1 * Math.cos(angleFromMid) // x,y position on unit circle from angle to get vel
+		const vely =  -1 * Math.sin(angleFromMid) // correct our inverted y axis (-1 => 1)
+
+		agents.push(new Agent(x, y, cell/2, {r,g,b}, velx, vely))
+
 	}
 
   return () => {
+		context.fillStyle = 'black' // loop: reset frame by filling with black rectangle => agents updated => new agents drawn => back to reset
+		context.fillRect(0, 0, width, height)
+
 		agents.forEach((a) => {
-			// a.update()
-			a.draw(context)
+			a.update(context)
+			a.draw(context, width, height)
 		})
+
+		// context.fillStyle='red' reference point
+		// context.beginPath()
+		// context.arc(540,540,cell/2,0,2*Math.PI)
+		// context.fill()
   };
 };
 
 canvasSketch(sketch, settings);
-
 
 class Vector {
 	constructor(x, y) {
@@ -76,12 +111,12 @@ class Vector {
 }
 
 class Agent {
-	constructor(x, y, radius, rgb) {
+	constructor(x, y, radius, rgb, velx, vely) {
 		this.pos = new Vector(x, y);
-		this.vel = // todo, angle from centre
+		this.vel = new Vector(velx, vely)
 		this.rad = radius
 		this.rgb = rgb
-		this.initPos = new Vector(x, y) // record of initial position
+		this.initPos = new Vector(x, y) // initial position TODO wrap animation
 	}
 
 	update() {
@@ -91,10 +126,10 @@ class Agent {
 
 	draw(context) {
 		context.save();
-		context.translate(this.pos.x, this.pos.y) // translate to top left
-		context.translate(this.rad/2, this.rad/2) // translate to mid
-
-		context.fillStyle = `rgb(${this.rgb.r},${this.rgb.g},${this.rgb.b})` // colour
+		context.translate(this.pos.x, this.pos.y) // translate to top left corner of cell
+		context.translate(this.rad, this.rad) // translate to mid
+		const { r, g, b } = this.rgb
+		context.fillStyle = `rgb(${r},${g},${b})` // colour
 		context.beginPath();
 		context.arc(0, 0, this.rad, 0, 2*Math.PI);
 		context.fill();
