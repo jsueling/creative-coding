@@ -1,17 +1,20 @@
 const canvasSketch = require('canvas-sketch');
 const math = require('canvas-sketch-util/math')
+const random = require('canvas-sketch-util/random')
 
 const settings = {
   dimensions: [ 1080, 1080 ],
 	animate: true
 };
 
+let img
+
 const typeCanvas = document.createElement('canvas');
 const typeContext = typeCanvas.getContext('2d');
 
 const sketch = ({ context, width, height }) => {
 
-  const cell = 20;
+  const cell = 10;
 	const cols = Math.floor(width  / cell);
 	const rows = Math.floor(height / cell);
 	const numCells = cols * rows;
@@ -21,15 +24,7 @@ const sketch = ({ context, width, height }) => {
 	typeContext.fillStyle = 'black';
 	typeContext.fillRect(0, 0, cols, rows);
 
-	typeContext.fillStyle = 'white'
-	typeContext.save()
-	typeContext.translate(cols/2, rows/2)
-
-	typeContext.beginPath()
-	typeContext.arc(0, 0, cols/6, 0, 2*Math.PI)
-	typeContext.fill()
-
-	typeContext.restore()
+	typeContext.drawImage(img, 0, 0, cols, rows) // draws fetched image
 
 	const typeData = typeContext.getImageData(0, 0, cols, rows).data;
 
@@ -52,7 +47,7 @@ const sketch = ({ context, width, height }) => {
 		const b = typeData[i * 4 + 2];
 		// const a = typeData[i * 4 + 3] // rgba alpha
 
-		if (r === 0 &&  g === 0 && b === 0) continue // don't need to render black agents on black
+		// if (r > 200) continue // choose which colours based on rgb to create as agents/render to screen
 
 		// x,y are top left corner coordinates, add cell/2 to translate to centre
 
@@ -77,11 +72,15 @@ const sketch = ({ context, width, height }) => {
 		else if (midX > width/2 && midY > height/2) { // bot right
 			angleFromMid *= -1
 		}
+		// const zoomSpeed = math.mapRange(hyp, 0, width/2, 1, 200) // zoom effect, speed is mapped to distance from mid which is increasing with distance from mid
+		// const mapRadius = math.mapRange(hyp, 200, width/2, 0.4, 0.9) // radius mapped to distance from mid, decreasing with distance from mid
+		const speedFactor = random.range(1, 3) // random speeds from mid // zoomSpeed
+		const radiusFactor = random.range(0.3, 0.8) // random radius of pixel // 1.5 - mapRadius
 
-		const velx =  1 * Math.cos(angleFromMid) // x,y position on unit circle from angle to get vel
-		const vely =  -1 * Math.sin(angleFromMid) // correct our inverted y axis (-1 => 1)
+		const velx =  speedFactor * Math.cos(angleFromMid) // x, y position from angle to get vel * radius (speed)
+		const vely =  -speedFactor * Math.sin(angleFromMid) // correct our inverted y axis *= -1
 
-		agents.push(new Agent(x, y, cell/2, {r,g,b}, velx, vely))
+		agents.push(new Agent(x, y, radiusFactor * cell/2, {r,g,b}, velx, vely))
 
 	}
 
@@ -104,7 +103,24 @@ const sketch = ({ context, width, height }) => {
   };
 };
 
-canvasSketch(sketch, settings);
+const url = 'https://i.picsum.photos/id/197/1080/1080.jpg?hmac=Gzv5G6IYGOLY5p_6E52xsIUAxd7WWN3tu--DiCQzqGY' // https://picsum.photos/1080
+
+const loadImage = (url) => {
+  return new Promise((res, rej) => {
+    const img = new Image()
+    img.onload = () => res(img)
+    img.onerror = () => rej()
+		img.crossOrigin = "Anonymous" // https://stackoverflow.com/a/27840082
+    img.src = url
+  })
+}
+
+const start = async () => {
+  img = await loadImage(url)
+	canvasSketch(sketch, settings, img);
+}
+
+start()
 
 class Vector {
 	constructor(x, y) {
@@ -123,16 +139,16 @@ class Agent {
 	}
 
 	update(time) {
-		const playhead = time % 20 // 0->20 loop
-		if (playhead > 1 && playhead < 10) { // 1-10  ~8.98 growing
+		const playhead = time % 5 // 0->5 loop
+		if (playhead > 0.5 && playhead < 2.5) { // 2 growing
 			this.pos.x += this.vel.x;
 			this.pos.y += this.vel.y;
-			this.rad *= 0.999
+			this.rad /= 0.95
 		}	
-		else if (playhead >= 10 && playhead < 19){ // 10-19 ~8.98 shrinking
+		else if (playhead > 2.5 && playhead < 4.5 ){ // 2 shrinking
 			this.pos.x -= this.vel.x;
 			this.pos.y -= this.vel.y;
-			this.rad /= 0.999
+			this.rad *= 0.95
 		}
 	}
 
