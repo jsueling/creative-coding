@@ -85,16 +85,19 @@ const sketch = ({ context, width, height }) => {
 
 	}
 
-  return () => {
+  return ({ time }) => {
 		context.fillStyle = 'black' // loop: reset frame by filling with black rectangle => agents updated => new agents drawn => back to reset
 		context.fillRect(0, 0, width, height)
 
+		// agents[0].update(time) // test single agent
+		// agents[0].draw(context, width, height)
+
 		agents.forEach((a) => {
-			a.update(context)
+			a.update(time)
 			a.draw(context, width, height)
 		})
 
-		// context.fillStyle='red' reference point
+		// context.fillStyle='red' // test reference point
 		// context.beginPath()
 		// context.arc(540,540,cell/2,0,2*Math.PI)
 		// context.fill()
@@ -119,9 +122,18 @@ class Agent {
 		this.initPos = new Vector(x, y) // initial position TODO wrap animation
 	}
 
-	update() {
-		this.pos.x += this.vel.x;
-		this.pos.y += this.vel.y;
+	update(time) {
+		const playhead = time % 20 // 0->20 loop
+		if (playhead > 1 && playhead < 10) { // 1-10  ~8.98 growing
+			this.pos.x += this.vel.x;
+			this.pos.y += this.vel.y;
+			this.rad *= 0.999
+		}	
+		else if (playhead >= 10 && playhead < 19){ // 10-19 ~8.98 shrinking
+			this.pos.x -= this.vel.x;
+			this.pos.y -= this.vel.y;
+			this.rad /= 0.999
+		}
 	}
 
 	draw(context) {
