@@ -14,7 +14,7 @@ const typeContext = typeCanvas.getContext('2d');
 
 const sketch = ({ context, width, height }) => {
 
-  const cell = 10;
+  const cell = 5;
 	const cols = Math.floor(width  / cell);
 	const rows = Math.floor(height / cell);
 	const numCells = cols * rows;
@@ -47,7 +47,8 @@ const sketch = ({ context, width, height }) => {
 		const b = typeData[i * 4 + 2];
 		// const a = typeData[i * 4 + 3] // rgba alpha
 
-		// if (r > 200) continue // choose which colours based on rgb to create as agents/render to screen
+		// if (i % 7 == 0) continue
+		if (r < 100) continue // choose which colours based on rgb to create as agents/render to screen
 
 		// x,y are top left corner coordinates, add cell/2 to translate to centre
 
@@ -72,10 +73,10 @@ const sketch = ({ context, width, height }) => {
 		else if (midX > width/2 && midY > height/2) { // bot right
 			angleFromMid *= -1
 		}
-		// const zoomSpeed = math.mapRange(hyp, 0, width/2, 1, 200) // zoom effect, speed is mapped to distance from mid which is increasing with distance from mid
-		// const mapRadius = math.mapRange(hyp, 200, width/2, 0.4, 0.9) // radius mapped to distance from mid, decreasing with distance from mid
-		const speedFactor = random.range(1, 3) // random speeds from mid // zoomSpeed
-		const radiusFactor = random.range(0.3, 0.8) // random radius of pixel // 1.5 - mapRadius
+		const zoomEffect = math.mapRange(hyp, 0, width/2, 0.1, 30) // zoom effect, speed is mapped to distance from mid which is increasing with distance from mid
+		const mapRadius = math.mapRange(hyp, 200, width/2, 0.4, 0.9) // radius mapped to distance from mid, decreasing with distance from mid
+		const speedFactor = random.range(1, 3) // random speeds from mid  // zoomEffect
+		const radiusFactor = random.range(1, 1.3) // random radius of pixel // 1.5 - mapRadius 
 
 		const velx =  speedFactor * Math.cos(angleFromMid) // x, y position from angle to get vel * radius (speed)
 		const vely =  -speedFactor * Math.sin(angleFromMid) // correct our inverted y axis *= -1
@@ -103,7 +104,7 @@ const sketch = ({ context, width, height }) => {
   };
 };
 
-const url = 'https://i.picsum.photos/id/197/1080/1080.jpg?hmac=Gzv5G6IYGOLY5p_6E52xsIUAxd7WWN3tu--DiCQzqGY' // https://picsum.photos/1080
+const url = 'https://i.picsum.photos/id/88/1080/1080.jpg?hmac=wXuxKrT3ddwEfKucdKkk9vuhT99Cc2bUSi5yqEk4wEY' // https://picsum.photos/1080
 
 const loadImage = (url) => {
   return new Promise((res, rej) => {
@@ -139,16 +140,25 @@ class Agent {
 	}
 
 	update(time) {
-		const playhead = time % 5 // 0->5 loop
-		if (playhead > 0.5 && playhead < 2.5) { // 2 growing
-			this.pos.x += this.vel.x;
-			this.pos.y += this.vel.y;
-			this.rad /= 0.95
-		}	
-		else if (playhead > 2.5 && playhead < 4.5 ){ // 2 shrinking
-			this.pos.x -= this.vel.x;
-			this.pos.y -= this.vel.y;
-			this.rad *= 0.95
+		const playhead = time % 11 // 0->11 loop
+		// pause 1 seconds
+		if (playhead > 2 && playhead < 2.5) { // 0.5 growing at x4
+			this.pos.x += this.vel.x*4;
+			this.pos.y += this.vel.y*4;
+			// this.rad /= 0.99
+		}	else if (playhead > 9 && playhead < 10 ){ // 1 shrinking at x2
+			this.pos.x -= this.vel.x*2;
+			this.pos.y -= this.vel.y*2;
+			// this.rad *= 0.99
+		} else if (playhead > 2.5 && playhead < 5.75) { // 3.25 growing at x1/4
+			this.pos.x += this.vel.x/4;
+			this.pos.y += this.vel.y/4;
+		} else if (playhead > 5.75 && playhead < 9) { // 3.25 shrinking at x1/4
+			this.pos.x -= this.vel.x/4;
+			this.pos.y -= this.vel.y/4;
+		} else if (playhead > 9) { // snaps back into start position and pause 1 seconds
+			this.pos.x = this.initPos.x
+			this.pos.y = this.initPos.y
 		}
 	}
 
