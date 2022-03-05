@@ -30,15 +30,15 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 	typeContext.fillRect(0, 0, cols, rows);
 
   typeContext.save()
-  typeContext.translate(cols/4, rows/4)
   typeContext.fillStyle = 'white'
-  typeContext.fillRect(0, 0, cols/2, rows/2);
+  typeContext.translate(cols/2, rows/2) // mid
+  typeContext.beginPath()
+  typeContext.arc(0, 0, cols/4, 0, 2*Math.PI)
+  typeContext.fill()
   typeContext.restore()
 
   // extract pixel data from typeContext
   const typeData = typeContext.getImageData(0, 0, cols, rows).data;
-
-  context.fillRect(0, 0, width, height)
 
   // create agents based on pixel data
   for (let i = 0; i < numCells; i++) {
@@ -57,7 +57,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 
     if (rgb.r < 50) continue
 
-		agents.push(new Agent(x, y, cell/2, cell/2, rgb))
+		agents.push(new Agent(x, y, cell/4, rgb)) // each agent has radius 1/4 of cell width
 	}
 
   let cursor = new Cursor(0, 0) // initialize cursor
@@ -66,12 +66,20 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
     cursor = new Cursor(e.offsetX, e.offsetY)
   }
   
-  return () => {
-    // agents[0].draw(context) // single agent test
+  return ({ frame }) => {
+    context.fillRect(0, 0, width, height) // clear previous renders with black rectangle
+
+    // const playhead = time % 1
+
+    // single agent test
+    // agents[0].undulate(frame)
+    // agents[0].draw(context) 
     // cursor.collisionCheck(agents[0])
 
-    agents.forEach(agent => { // render agents to main canvas
+    // render agents to main canvas
+    agents.forEach(agent => {
       // agent.update();
+      agent.undulate(frame)
 			agent.draw(context);
       cursor.collisionCheck(agent)
 		});
@@ -107,12 +115,12 @@ class Cursor extends Vector {
 }
 
 class Agent {
-	constructor(x, y, width, height, rgb) {
+	constructor(x, y, radius, rgb) {
 		this.pos = new Vector(x, y);
 		// this.vel = new Vector(random.range(-1, 1), random.range(-1, 1));
-    this.width = width
-    this.height = height
-    this.midPoint = new Vector(this.pos.x + this.width/2, this.pos.y + this.height/2) // correct position of mid relative to top left corner of the agent
+    this.originalRadius = radius
+    this.radius = radius
+    this.midPoint = new Vector(this.pos.x + this.radius, this.pos.y + this.radius) // correct position of mid relative to top left corner of the agent
     this.r = rgb.r
     this.g = rgb.g
     this.b = rgb.b
@@ -124,14 +132,25 @@ class Agent {
 		this.pos.y += this.vel.y;
 	}
 
+  undulate(frame) {
+    const noise = random.noise3D(this.midPoint.x, this.midPoint.y, frame * 10, 0.001, 1) // current frame is the 3rd dimension, outputs -1 -> +1
+    const newRadius = math.mapRange(noise, -1, 1, this.originalRadius * 0.2, this.originalRadius * 1.8)
+    // console.log(this.r, this.g, this.b);
+    // TODO: mapRange r, g or b using noise 0 -> 255
+    // https://github.com/mattdesl/canvas-sketch-util/blob/master/docs/math.md#damp
+    this.radius = newRadius
+  }
+
 	draw(context) {
 		context.save();
-    context.translate(this.pos.x, this.pos.y)
-    context.translate(this.width/2, this.height/2)
+    context.translate(this.midPoint.x, this.midPoint.y)
     context.fillStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
-		// this.path.rect(this.pos.x + this.width/2, this.pos.y + this.height/2, this.width, this.height);
-    context.fillRect(0, 0, this.width, this.height)
-    context.fill(this.path)
+    // TODO: mapRange endAngle of stroke using noise 0 -> 2*Math.PI
+    // context.strokeStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})`
+    context.beginPath()
+    context.arc(0, 0, this.radius, 0, 2*Math.PI)
+    // context.stroke()
+    context.fill()
 		context.restore();
 	}
 }
