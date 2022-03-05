@@ -18,24 +18,29 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 
   const agents = [];
 
-  const cell = 100;
+  const cell = 20;
 	const cols = Math.floor(width  / cell);
 	const rows = Math.floor(height / cell);
 	const numCells = cols * rows;
 
+  // draw on typeContext
 	typeCanvas.width  = cols;
 	typeCanvas.height = rows;
-	typeContext.fillStyle = 'white';
+	typeContext.fillStyle = 'black';
 	typeContext.fillRect(0, 0, cols, rows);
 
   typeContext.save()
   typeContext.translate(cols/4, rows/4)
-  typeContext.fillStyle = 'black'
+  typeContext.fillStyle = 'white'
   typeContext.fillRect(0, 0, cols/2, rows/2);
   typeContext.restore()
 
+  // extract pixel data from typeContext
   const typeData = typeContext.getImageData(0, 0, cols, rows).data;
 
+  context.fillRect(0, 0, width, height)
+
+  // create agents based on pixel data
   for (let i = 0; i < numCells; i++) {
 		const col = i % cols;
 		const row = Math.floor(i / cols);
@@ -50,7 +55,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
       // a: typeData[i * 4 + 3] // alpha
     }
 
-    if (rgb.r > 250) continue
+    if (rgb.r < 50) continue
 
 		agents.push(new Agent(x, y, cell/2, cell/2, rgb))
 	}
@@ -62,11 +67,13 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
   }
   
   return () => {
-    document.body.style.cursor = "default"; // each frame, set cursor style to default once
-    agents.forEach(agent => {
+    // agents[0].draw(context) // single agent test
+    // cursor.collisionCheck(agents[0])
+
+    agents.forEach(agent => { // render agents to main canvas
       // agent.update();
 			agent.draw(context);
-      cursor.collisionCheck(context, agent)
+      cursor.collisionCheck(agent)
 		});
   };
 };
@@ -78,11 +85,11 @@ class Vector {
 		this.x = x;
 		this.y = y;
 	}
-	// getDistance(v) {
-	// 	const dx = this.x - v.x;
-	// 	const dy = this.y - v.y;
-	// 	return Math.sqrt(dx * dx + dy * dy);
-	// }
+	getDistance(v) {
+		const dx = this.x - v.x;
+		const dy = this.y - v.y;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
 }
 
 class Cursor extends Vector {
@@ -90,9 +97,8 @@ class Cursor extends Vector {
     super(x, y);
   }
 
-  collisionCheck(context, agent) {
-    if (context.isPointInPath(agent.path, this.x, this.y)) {
-      document.body.style.cursor = "pointer"
+  collisionCheck(agent) {
+    if (this.getDistance(agent.midPoint) < 150) { // checking distance between cursor and an agent
       agent.hovered = true
     } else {
       agent.hovered = false
@@ -106,11 +112,11 @@ class Agent {
 		// this.vel = new Vector(random.range(-1, 1), random.range(-1, 1));
     this.width = width
     this.height = height
+    this.midPoint = new Vector(this.pos.x + this.width/2, this.pos.y + this.height/2) // correct position of mid relative to top left corner of the agent
     this.r = rgb.r
     this.g = rgb.g
     this.b = rgb.b
     this.hovered = false
-    this.path = new Path2D() // https://developer.mozilla.org/en-US/docs/Web/API/Path2D
 	}
 
 	update() {
@@ -120,8 +126,11 @@ class Agent {
 
 	draw(context) {
 		context.save();
-    context.fillStyle = this.hovered ? 'white' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
-		this.path.rect(this.pos.x + this.width/2, this.pos.y + this.height/2, this.width, this.height);
+    context.translate(this.pos.x, this.pos.y)
+    context.translate(this.width/2, this.height/2)
+    context.fillStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
+		// this.path.rect(this.pos.x + this.width/2, this.pos.y + this.height/2, this.width, this.height);
+    context.fillRect(0, 0, this.width, this.height)
     context.fill(this.path)
 		context.restore();
 	}
