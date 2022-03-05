@@ -3,16 +3,22 @@ const random  = require('canvas-sketch-util/random')
 const math  = require('canvas-sketch-util/math')
 
 const settings = {
-  dimensions: [ 1080, 1080 ]
+  dimensions: [ 1080, 1080 ],
+  animate: true
 };
+
+// Mouseover in canvas thanks to:
+// https://stackoverflow.com/a/54805456
+// https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/isPointInPath
 
 const typeCanvas = document.createElement('canvas');
 const typeContext = typeCanvas.getContext('2d');
 
-const sketch = ({ context, width, height }) => {
+const sketch = ({ context, width, height, canvas }) => { // https://github.com/mattdesl/canvas-sketch/blob/master/docs/api.md#dom-props
+
   const agents = [];
 
-  const cell = 20;
+  const cell = 100;
 	const cols = Math.floor(width  / cell);
 	const rows = Math.floor(height / cell);
 	const numCells = cols * rows;
@@ -28,36 +34,9 @@ const sketch = ({ context, width, height }) => {
   typeContext.fillRect(0, 0, cols/2, rows/2);
   typeContext.restore()
 
-  // const testRad = 5
-  // typeContext.fillStyle='black'
-  // typeContext.save()
-  // typeContext.translate(cols/4,cols/4)
-  // typeContext.beginPath()
-  // typeContext.arc(0,0, testRad, 0, 2*Math.PI)
-  // typeContext.fill()
-  // typeContext.restore()
-  // typeContext.save()
-  // typeContext.translate(cols*3/4,rows/4)
-  // typeContext.beginPath()
-  // typeContext.arc(0,0, testRad, 0, 2*Math.PI)
-  // typeContext.fill()
-  // typeContext.restore()
-  // typeContext.save()
-  // typeContext.translate(cols*3/4,rows*3/4)
-  // typeContext.beginPath()
-  // typeContext.arc(0,0, testRad, 0, 2*Math.PI)
-  // typeContext.fill()
-  // typeContext.restore()
-  // typeContext.save()
-  // typeContext.translate(cols/4,rows*3/4)
-  // typeContext.beginPath()
-  // typeContext.arc(0,0, testRad, 0, 2*Math.PI)
-  // typeContext.fill()
-  // typeContext.restore()
-
   const typeData = typeContext.getImageData(0, 0, cols, rows).data;
 
-  for (let i = 0; i < numCells; i++) { // moved outside of the animation, initial points
+  for (let i = 0; i < numCells; i++) {
 		const col = i % cols;
 		const row = Math.floor(i / cols);
 
@@ -71,13 +50,23 @@ const sketch = ({ context, width, height }) => {
       // a: typeData[i * 4 + 3] // alpha
     }
 
+    if (rgb.r > 250) continue
+
 		agents.push(new Agent(x, y, cell/2, cell/2, rgb))
 	}
 
+  let cursor = new Cursor(0, 0) // initialize cursor
+  
+  canvas.onmousemove = (e) => { // update cursor on canvas mouse move event
+    cursor = new Cursor(e.offsetX, e.offsetY)
+  }
+  
   return () => {
+    document.body.style.cursor = "default"; // each frame, set cursor style to default once
     agents.forEach(agent => {
-			// agent.update();
+      // agent.update();
 			agent.draw(context);
+      cursor.collisionCheck(context, agent)
 		});
   };
 };
@@ -96,15 +85,32 @@ class Vector {
 	// }
 }
 
+class Cursor extends Vector {
+  constructor(x, y) {
+    super(x, y);
+  }
+
+  collisionCheck(context, agent) {
+    if (context.isPointInPath(agent.path, this.x, this.y)) {
+      document.body.style.cursor = "pointer"
+      agent.hovered = true
+    } else {
+      agent.hovered = false
+    }
+  }
+}
+
 class Agent {
 	constructor(x, y, width, height, rgb) {
 		this.pos = new Vector(x, y);
-		this.vel = new Vector(random.range(-1, 1), random.range(-1, 1));
+		// this.vel = new Vector(random.range(-1, 1), random.range(-1, 1));
     this.width = width
     this.height = height
     this.r = rgb.r
     this.g = rgb.g
     this.b = rgb.b
+    this.hovered = false
+    this.path = new Path2D() // https://developer.mozilla.org/en-US/docs/Web/API/Path2D
 	}
 
 	update() {
@@ -114,10 +120,9 @@ class Agent {
 
 	draw(context) {
 		context.save();
-		context.translate(this.pos.x, this.pos.y);
-    context.translate(this.width/2, this.height/2)
-    context.fillStyle = `rgb(${this.r}, ${this.g}, ${this.b})`
-		context.fillRect(0, 0, this.width, this.height);
+    context.fillStyle = this.hovered ? 'white' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
+		this.path.rect(this.pos.x + this.width/2, this.pos.y + this.height/2, this.width, this.height);
+    context.fill(this.path)
 		context.restore();
 	}
 }
