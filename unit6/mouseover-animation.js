@@ -16,9 +16,12 @@ const typeContext = typeCanvas.getContext('2d');
 
 const sketch = ({ context, width, height, canvas }) => { // https://github.com/mattdesl/canvas-sketch/blob/master/docs/api.md#dom-props
 
+  // const img = new Image()
+  // img.src = 'grand-central.jpg' // local image
+
   const agents = [];
 
-  const cell = 20;
+  const cell = 108;
 	const cols = Math.floor(width  / cell);
 	const rows = Math.floor(height / cell);
 	const numCells = cols * rows;
@@ -29,6 +32,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 	typeContext.fillStyle = 'black';
 	typeContext.fillRect(0, 0, cols, rows);
 
+  // typeContext.drawImage(img, 0, 0, rows, cols)
   typeContext.save()
   typeContext.fillStyle = 'white'
   typeContext.translate(cols/2, rows/2) // mid
@@ -45,8 +49,8 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 		const col = i % cols;
 		const row = Math.floor(i / cols);
 
-		const x = col * cell;
-		const y = row * cell;
+		const x = col*cell + cell/2; // x,y always points to the middle of the agent cell
+		const y = row*cell + cell/2;
 
     const rgb = {
       r: typeData[i * 4 + 0],
@@ -57,7 +61,30 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 
     if (rgb.r < 50) continue
 
-		agents.push(new Agent(x, y, cell/4, rgb)) // each agent has radius 1/4 of cell width
+		const hyp = Math.sqrt((width/2 - x)**2 + (height/2 - y)**2)
+		const adj = Math.abs(width/2 - x)
+		let angleFromMid = Math.acos(adj/hyp) // find angle between mid and this agent using trigonometry
+
+    // quadrants
+		if (x > width/2 && y <= height/2) { // top right
+			// pass
+		} else if (x <= width/2 && y <= height/2) { // top left
+			angleFromMid = Math.PI - angleFromMid
+		} else if (x <= width/2 && y > height/2) { // bot left
+			angleFromMid += Math.PI
+		} else if (x > width/2 && y > height/2) { // bot right
+			angleFromMid *= -1
+		}
+
+    // TODO
+    const midToCornerDistance = Math.sqrt(0.5*width**2)/2
+
+    const randomOffsetDistance = random.range(midToCornerDistance * 1.1, midToCornerDistance * 1.5) // render agents outside of view
+
+    const curX = randomOffsetDistance * Math.cos(angleFromMid) // get current x,y positions using trig
+    const curY = randomOffsetDistance * Math.sin(angleFromMid)
+
+		agents.push(new Agent(curX, curY, x, y, cell/2, rgb, angleFromMid)) // each agent has radius 1/2 of cell width, x,y is top left corner of cell
 	}
 
   let cursor = new Cursor(0, 0) // initialize cursor
@@ -69,6 +96,13 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
   return ({ frame }) => {
     context.fillRect(0, 0, width, height) // clear previous renders with black rectangle
 
+    context.save() // test
+    context.fillStyle = 'red'
+    context.beginPath()
+    context.arc(width/2, height/2, 20, 0, 2*Math.PI)
+    context.fill()
+    context.restore()
+
     // const playhead = time % 1
 
     // single agent test
@@ -79,8 +113,8 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
     // render agents to main canvas
     agents.forEach(agent => {
       // agent.update();
-      agent.undulate(frame)
-			agent.draw(context);
+      // agent.undulate(frame)
+			agent.draw(context)
       cursor.collisionCheck(agent)
 		});
   };
@@ -106,7 +140,7 @@ class Cursor extends Vector {
   }
 
   collisionCheck(agent) {
-    if (this.getDistance(agent.midPoint) < 150) { // checking distance between cursor and an agent
+    if (this.getDistance(agent.pos) < 200) { // checking distance between cursor and an agent
       agent.hovered = true
     } else {
       agent.hovered = false
@@ -115,16 +149,19 @@ class Cursor extends Vector {
 }
 
 class Agent {
-	constructor(x, y, radius, rgb) {
-		this.pos = new Vector(x, y);
-		// this.vel = new Vector(random.range(-1, 1), random.range(-1, 1));
-    this.originalRadius = radius
+	constructor(x, y, destX, destY, radius, rgb, angleFromMid) {
+		this.pos = new Vector(x, y)
+    this.destination = new Vector(destX, destY);
+		this.vel = new Vector(random.range(-1, 1), random.range(-1, 1));
     this.radius = radius
-    this.midPoint = new Vector(this.pos.x + this.radius, this.pos.y + this.radius) // correct position of mid relative to top left corner of the agent
+    this.originalRadius = radius
     this.r = rgb.r
     this.g = rgb.g
     this.b = rgb.b
     this.hovered = false
+    this.angleFromMid = angleFromMid
+
+    // need position on the unit circle + how fast to move to get there in 1 second
 	}
 
 	update() {
@@ -133,24 +170,38 @@ class Agent {
 	}
 
   undulate(frame) {
-    const noise = random.noise3D(this.midPoint.x, this.midPoint.y, frame * 10, 0.001, 1) // current frame is the 3rd dimension, outputs -1 -> +1
-    const newRadius = math.mapRange(noise, -1, 1, this.originalRadius * 0.2, this.originalRadius * 1.8)
-    // console.log(this.r, this.g, this.b);
-    // TODO: mapRange r, g or b using noise 0 -> 255
+    const noise = random.noise3D(this.pos.x, this.pos.y, frame * 10, 0.001, 1) // current frame is the 3rd dimension, outputs -1 -> +1
+    const newRadius = math.mapRange(noise, -1, 1, this.originalRadius * 0.1, this.originalRadius * 1)
+
+    // const newRed = Math.round(math.mapRange(noise, -1, 1, 150, 210))
+    // const newGreen = Math.round(math.mapRange(noise, -1, 1, 150, 190))
+    // const newBlue = Math.round(math.mapRange(noise, -1, 1, 210, 220))
+    // const newStartAngle = math.mapRange(noise, -1, 1, 0, 2 * Math.PI)
+    // this.startAngle = newStartAngle
+    // this.endAngle = 2 * Math.PI - newStartAngle
+    // this.r = newRed
+    // this.g = newGreen
+    // this.b = newBlue
     // https://github.com/mattdesl/canvas-sketch-util/blob/master/docs/math.md#damp
+
     this.radius = newRadius
   }
 
 	draw(context) {
 		context.save();
-    context.translate(this.midPoint.x, this.midPoint.y)
-    context.fillStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
-    // TODO: mapRange endAngle of stroke using noise 0 -> 2*Math.PI
+    context.translate(this.pos.x, this.pos.y)
+    // context.lineWidth = 6
     // context.strokeStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})`
+    context.fillStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
     context.beginPath()
     context.arc(0, 0, this.radius, 0, 2*Math.PI)
     // context.stroke()
     context.fill()
 		context.restore();
 	}
+}
+
+// https://gist.github.com/gre/1650294 + https://youtu.be/u_wmz0H4nKw?t=1331
+function ease(t) {
+  return t<.5 ? 2*t*t : -1+(4-2*t)*t
 }
