@@ -76,15 +76,19 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 			angleFromMid *= -1
 		}
 
-    // TODO
-    const midToCornerDistance = Math.sqrt(0.5*width**2)/2
+    const midToCornerDistance = Math.sqrt((width/2)**2 + (height/2)**2)
 
-    const randomOffsetDistance = random.range(midToCornerDistance * 1.1, midToCornerDistance * 1.5) // render agents outside of view
+    const randomOffsetDistance = random.range(midToCornerDistance * 1.5, midToCornerDistance * 10.9  ) // render agents outside of view * random factor
 
-    const curX = randomOffsetDistance * Math.cos(angleFromMid) // get current x,y positions using trig
-    const curY = randomOffsetDistance * Math.sin(angleFromMid)
+    const curX = width/2 + randomOffsetDistance * Math.cos(angleFromMid) // get current x,y positions using trig
+    const curY = height/2 - randomOffsetDistance * Math.sin(angleFromMid) // y is inverted top 0 -> bot 1080
 
-		agents.push(new Agent(curX, curY, x, y, cell/2, rgb, angleFromMid)) // each agent has radius 1/2 of cell width, x,y is top left corner of cell
+    const speedFactor = 150 // params.speedFactor
+
+    const velx = speedFactor * Math.cos(angleFromMid) // x,y of unit circle through destination from mid outwards
+    const vely = speedFactor * -1 * Math.sin(angleFromMid) // y is inverted top 0 -> bot 1080
+
+		agents.push(new Agent(curX, curY, x, y, cell/2, rgb, velx, vely)) // each agent has radius 1/2 of cell width, x,y is top left corner of cell
 	}
 
   let cursor = new Cursor(0, 0) // initialize cursor
@@ -106,14 +110,15 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
     // const playhead = time % 1
 
     // single agent test
+    // agents[0].update()
     // agents[0].undulate(frame)
     // agents[0].draw(context) 
     // cursor.collisionCheck(agents[0])
 
     // render agents to main canvas
     agents.forEach(agent => {
-      // agent.update();
-      // agent.undulate(frame)
+      agent.update();
+      agent.undulate(frame)
 			agent.draw(context)
       cursor.collisionCheck(agent)
 		});
@@ -149,24 +154,30 @@ class Cursor extends Vector {
 }
 
 class Agent {
-	constructor(x, y, destX, destY, radius, rgb, angleFromMid) {
+	constructor(x, y, destX, destY, radius, rgb, velx, vely) {
+    // current
 		this.pos = new Vector(x, y)
-    this.destination = new Vector(destX, destY);
-		this.vel = new Vector(random.range(-1, 1), random.range(-1, 1));
     this.radius = radius
-    this.originalRadius = radius
+		this.vel = new Vector(velx, vely);
     this.r = rgb.r
     this.g = rgb.g
     this.b = rgb.b
     this.hovered = false
-    this.angleFromMid = angleFromMid
+
+    // record
+    this.destination = new Vector(destX, destY);
+    this.originalDist = this.pos.getDistance(this.destination)
+    this.originalRadius = radius
 
     // need position on the unit circle + how fast to move to get there in 1 second
 	}
 
 	update() {
-		this.pos.x += this.vel.x;
-		this.pos.y += this.vel.y;
+    const dist = this.pos.getDistance(this.destination)
+    if (dist > 0.1) { // stop entirely if close enough
+      this.pos.x -= this.vel.x * (dist/this.originalDist); // decelerates close to its destination
+      this.pos.y -= this.vel.y * (dist/this.originalDist); // (dist/this.originalDist) varies from 1 to 0
+    }
 	}
 
   undulate(frame) {
