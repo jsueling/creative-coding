@@ -16,12 +16,12 @@ const typeContext = typeCanvas.getContext('2d');
 
 const sketch = ({ context, width, height, canvas }) => { // https://github.com/mattdesl/canvas-sketch/blob/master/docs/api.md#dom-props
 
-  // const img = new Image()
-  // img.src = 'grand-central.jpg' // local image
+  const img = new Image()
+  img.src = 'woman-grayscale.jpg' // local image
 
   const agents = [];
 
-  const cell = 108;
+  const cell = 10;
 	const cols = Math.floor(width  / cell);
 	const rows = Math.floor(height / cell);
 	const numCells = cols * rows;
@@ -32,14 +32,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 	typeContext.fillStyle = 'black';
 	typeContext.fillRect(0, 0, cols, rows);
 
-  // typeContext.drawImage(img, 0, 0, rows, cols)
-  typeContext.save()
-  typeContext.fillStyle = 'white'
-  typeContext.translate(cols/2, rows/2) // mid
-  typeContext.beginPath()
-  typeContext.arc(0, 0, cols/4, 0, 2*Math.PI)
-  typeContext.fill()
-  typeContext.restore()
+  typeContext.drawImage(img, 0, 0, rows, cols)
 
   // extract pixel data from typeContext
   const typeData = typeContext.getImageData(0, 0, cols, rows).data;
@@ -59,7 +52,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
       // a: typeData[i * 4 + 3] // alpha
     }
 
-    if (rgb.r < 50) continue
+    if (rgb.r < 10) continue
 
 		const hyp = Math.sqrt((width/2 - x)**2 + (height/2 - y)**2)
 		const adj = Math.abs(width/2 - x)
@@ -78,7 +71,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 
     const midToCornerDistance = Math.sqrt((width/2)**2 + (height/2)**2)
 
-    const randomOffsetDistance = random.range(midToCornerDistance * 1.5, midToCornerDistance * 10.9  ) // render agents outside of view * random factor
+    const randomOffsetDistance = random.range(midToCornerDistance * 1.5, midToCornerDistance * 2.9  ) // render agents outside of view * random factor
 
     const curX = width/2 + randomOffsetDistance * Math.cos(angleFromMid) // get current x,y positions using trig
     const curY = height/2 - randomOffsetDistance * Math.sin(angleFromMid) // y is inverted top 0 -> bot 1080
@@ -96,28 +89,18 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
   canvas.onmousemove = (e) => { // update cursor on canvas mouse move event
     cursor = new Cursor(e.offsetX, e.offsetY)
   }
-  
+
+  // context.save() // to not clear previous renders, comment out fillRect
+  // context.fillStyle = 'rgb(80,80,80)'
+  // context.fillRect(0, 0, width, height) // clear previous renders with black rectangle
+  // context.restore()
+
   return ({ frame }) => {
     context.fillRect(0, 0, width, height) // clear previous renders with black rectangle
 
-    context.save() // test
-    context.fillStyle = 'red'
-    context.beginPath()
-    context.arc(width/2, height/2, 20, 0, 2*Math.PI)
-    context.fill()
-    context.restore()
-
-    // const playhead = time % 1
-
-    // single agent test
-    // agents[0].update()
-    // agents[0].undulate(frame)
-    // agents[0].draw(context) 
-    // cursor.collisionCheck(agents[0])
-
     // render agents to main canvas
     agents.forEach(agent => {
-      agent.update();
+      agent.update() // moving back to destination
       agent.undulate(frame)
 			agent.draw(context)
       cursor.collisionCheck(agent)
@@ -145,8 +128,11 @@ class Cursor extends Vector {
   }
 
   collisionCheck(agent) {
-    if (this.getDistance(agent.pos) < 200) { // checking distance between cursor and an agent
+    if (this.getDistance(agent.pos) < 100) { // checking distance between cursor and an agent
       agent.hovered = true
+      // if (this.settled) {} ? TODO
+      agent.pos.x += agent.vel.x * 0.2 // moving away from the midPoint
+      agent.pos.y += agent.vel.y * 0.2
     } else {
       agent.hovered = false
     }
@@ -163,49 +149,45 @@ class Agent {
     this.g = rgb.g
     this.b = rgb.b
     this.hovered = false
+    this.settled = false
+    this.startAngle = 0
+    this.endAngle = 2 * Math.PI
 
     // record
     this.destination = new Vector(destX, destY);
     this.originalDist = this.pos.getDistance(this.destination)
     this.originalRadius = radius
-
-    // need position on the unit circle + how fast to move to get there in 1 second
 	}
 
 	update() {
     const dist = this.pos.getDistance(this.destination)
-    if (dist > 0.1) { // stop entirely if close enough
-      this.pos.x -= this.vel.x * (dist/this.originalDist); // decelerates close to its destination
+    if (dist > 0.5) {
+      this.settled = false
+      this.pos.x -= this.vel.x * (dist/this.originalDist); // decelerates closing on its destination
       this.pos.y -= this.vel.y * (dist/this.originalDist); // (dist/this.originalDist) varies from 1 to 0
+    } else {
+      this.settled = true // stop if close enough
     }
 	}
 
   undulate(frame) {
-    const noise = random.noise3D(this.pos.x, this.pos.y, frame * 10, 0.001, 1) // current frame is the 3rd dimension, outputs -1 -> +1
-    const newRadius = math.mapRange(noise, -1, 1, this.originalRadius * 0.1, this.originalRadius * 1)
-
-    // const newRed = Math.round(math.mapRange(noise, -1, 1, 150, 210))
-    // const newGreen = Math.round(math.mapRange(noise, -1, 1, 150, 190))
-    // const newBlue = Math.round(math.mapRange(noise, -1, 1, 210, 220))
-    // const newStartAngle = math.mapRange(noise, -1, 1, 0, 2 * Math.PI)
-    // this.startAngle = newStartAngle
-    // this.endAngle = 2 * Math.PI - newStartAngle
-    // this.r = newRed
-    // this.g = newGreen
-    // this.b = newBlue
-    // https://github.com/mattdesl/canvas-sketch-util/blob/master/docs/math.md#damp
-
+    const noise = random.noise3D(this.pos.x, this.pos.y, frame * 10, 0.0005, 1) // current frame is the 3rd dimension, outputs -1 -> +1
+    const newRadius = math.mapRange(noise, -1, 1, this.originalRadius * 0.1, this.originalRadius * 5)
+    // const newStartAngle = math.mapRange(noise, -1, 1, 0, 1/2*Math.PI)
     this.radius = newRadius
+    // this.startAngle = newStartAngle
+    // this.endAngle = newStartAngle *1.4
   }
 
 	draw(context) {
 		context.save();
     context.translate(this.pos.x, this.pos.y)
-    // context.lineWidth = 6
-    // context.strokeStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})`
-    context.fillStyle = this.hovered ? 'black' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
+    // context.lineWidth = 1
+    // context.strokeStyle = `rgb(${this.r}, ${this.g}, ${this.b})` // this.hovered ? 'blue' :
+    context.fillStyle = this.hovered ? 'blue' : `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover
+    // context.fillStyle = `rgb(${this.r}, ${this.g}, ${this.b})`
     context.beginPath()
-    context.arc(0, 0, this.radius, 0, 2*Math.PI)
+    context.arc(0, 0, this.radius, this.startAngle, this.endAngle)
     // context.stroke()
     context.fill()
 		context.restore();
