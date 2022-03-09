@@ -9,8 +9,8 @@ const settings = {
 };
 
 const params = {
-  freq: 0.0032,
-  lineWidth: 1
+  freq: 0.009,
+  brushRadius: 200
 }
 
 // Mouseover in canvas thanks to:
@@ -27,7 +27,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 
   const agents = [];
 
-  const cell = 7;
+  const cell = 10;
 	const cols = Math.floor(width  / cell);
 	const rows = Math.floor(height / cell);
 	const numCells = cols * rows;
@@ -64,7 +64,7 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 		const adj = Math.abs(width/2 - x)
 		let angleFromMid = Math.acos(adj/hyp) // find angle between mid and this agent using trigonometry
 
-    // quadrants
+    // correct angle depending on quadrant
 		if (x > width/2 && y <= height/2) { // top right
 			// pass
 		} else if (x <= width/2 && y <= height/2) { // top left
@@ -77,17 +77,17 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 
     const midToCornerDistance = Math.sqrt((width/2)**2 + (height/2)**2)
 
-    const randomOffsetDistance = random.range(midToCornerDistance * 1.5, midToCornerDistance * 2.9  ) // render agents outside of view * random factor
+    const randomOffsetDistance = random.range(midToCornerDistance * 1.5, midToCornerDistance * 2.9) // render agents outside of view * randomFactor
 
     const curX = width/2 + randomOffsetDistance * Math.cos(angleFromMid) // get current x,y positions using trig
     const curY = height/2 - randomOffsetDistance * Math.sin(angleFromMid) // y is inverted top 0 -> bot 1080
 
-    const speedFactor = 180 // params.speedFactor
+    const speedFactor = 180 // larger radius = higher speed
 
-    const velx = speedFactor * Math.cos(angleFromMid) // x,y of unit circle through destination from mid outwards
+    const velx = speedFactor * Math.cos(angleFromMid) // x,y of unit circle from mid to destination outwards
     const vely = speedFactor * -1 * Math.sin(angleFromMid) // y is inverted top 0 -> bot 1080
 
-		agents.push(new Agent(curX, curY, x, y, cell/2, rgb, velx, vely)) // each agent has radius 1/2 of cell width, x,y is top left corner of cell
+		agents.push(new Agent(curX, curY, x, y, cell/2, rgb, velx, vely)) // current x,y destination x,y, radius, rgb value, vector on unit circle to reach destination
 	}
 
   let cursor = new Cursor(0, 0) // initialize cursor
@@ -96,19 +96,13 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
     cursor = new Cursor(e.offsetX, e.offsetY)
   }
 
-  // context.save() // to not clear previous renders, comment out fillRect
-  // context.fillStyle = 'rgb(80,80,80)'
-  // context.fillRect(0, 0, width, height) // clear previous renders with black rectangle
-  // context.restore()
-
   return ({ frame }) => {
-    // if (frame % 10 == 0) clear canvas every 10 frames
-    context.fillRect(0, 0, width, height) // clear previous renders with black rectangle
+    context.fillRect(0, 0, width, height) // clear previous renders, comment this out to not clear
 
     // render agents to main canvas
     agents.forEach(agent => {
       agent.update() // moving back to destination
-      agent.undulate(frame)
+      agent.undulate(frame, cursor)
 			agent.draw(context)
       cursor.collisionCheck(agent)
 		});
@@ -117,8 +111,8 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 
 const createPane = () => {
 	const pane = new Pane()
-	pane.addInput(params, 'freq', { min: 0.000001, max: 1, step: 0.000001 })
-  pane.addInput(params, 'lineWidth', { min: 1, max: 20, step: 0.1 })
+	pane.addInput(params, 'freq', { min: 0.00001, max: 0.05, step: 0.00001 })
+  pane.addInput(params, 'brushRadius', { min: 1, max: 5000, step: 1 })
 }
 
 createPane()
@@ -129,6 +123,7 @@ class Vector {
 		this.x = x;
 		this.y = y;
 	}
+
 	getDistance(v) {
 		const dx = this.x - v.x;
 		const dy = this.y - v.y;
@@ -141,13 +136,13 @@ class Cursor extends Vector {
     super(x, y);
   }
 
-  collisionCheck(agent) { // 80% of the time when dist is less than 100
-    if (this.getDistance(agent.pos) < Math.round(Math.random()/2 + 0.1) * 100) { // checking distance between cursor and an agent
+  collisionCheck(agent) {
+    const dist = this.getDistance(agent.pos)
+    if (dist < params.brushRadius ) { // proceed if agent is close enough to cursor
       agent.hovered = true
-      // if (agent.settled) {
-      agent.pos.x += agent.vel.x * 1.2 // moving away from the midPoint
-      agent.pos.y += agent.vel.y * 1.2
-      // }
+      const distFactor = math.mapRange(dist, 0, params.brushRadius, 0, 0.4) 
+      agent.pos.x += agent.vel.x * (0.4-distFactor)
+      agent.pos.y += agent.vel.y * (0.4-distFactor) // the closer to the cursor, the faster the agent will move away from it
     } else {
       agent.hovered = false
     }
@@ -167,57 +162,53 @@ class Agent {
     this.settled = false
     this.startAngle = 0
     this.endAngle = 2 * Math.PI
+    this.lineWidth = 10
 
     // record
     this.destination = new Vector(destX, destY);
     this.originalDist = this.pos.getDistance(this.destination)
     this.originalRadius = radius
     this.mid = new Vector(540, 540)
+    this.originalLineWidth = this.lineWidth
 	}
 
 	update() {
     const dist = this.pos.getDistance(this.destination)
     if (dist > 0.1) {
       this.settled = false
-      this.pos.x -= this.vel.x * (dist/this.originalDist); // decelerates closing on its destination
-      this.pos.y -= this.vel.y * (dist/this.originalDist); // (dist/this.originalDist) varies from 1 to 0
+      this.pos.x -= this.vel.x * (dist/this.originalDist); // decelerates closing on its destination (dist/this.originalDist) varies from 1 to 0
+      this.pos.y -= this.vel.y * (dist/this.originalDist);
     } else {
       this.settled = true // stop if close enough
     }
 	}
 
-  undulate(frame) {
-    const noise = random.noise3D(this.pos.x, this.pos.y, frame * 10, params.freq, 1) // current frame is the 3rd dimension, outputs -1 -> +1
+  undulate(frame, cursor) {
+    const posNoise = random.noise3D(this.pos.x, this.pos.y, frame/10, 0.1, 1) // noise varying with x,y and frame, outputs -1 -> +1
+    const radiusFactor = math.mapRange(posNoise, -1, 1, 0.5, 1)
+    this.radius = this.originalRadius * radiusFactor
 
-    // noise associated with r value of agent
-    const uniqueNoise = random.noise2D(this.r, frame*10, params.freq, 1) // this.pos.getDistance(this.mid)
+    // noise that can vary with:
+    // distance from mid: this.pos.getDistance(this.mid)
+    // r colour value of agent
+    // distance from cursor
+    const otherNoise = random.noise2D(this.pos.getDistance(cursor), frame, params.freq, 1)
+    const lineWidthFactor = math.mapRange(otherNoise, -1, 1, 0.1, 0.2) // map noise -> -1, 1 to desired range
+    const newStartAngle = math.mapRange(otherNoise, -1, 1, 0, 2 * Math.PI)
 
-    // if (this.settled) {
-    //   const posNoise = random.noise3D(this.pos.x, this.pos.y, frame * 10, 0.00001, 1)
-    //   const posOffset = math.mapRange(posNoise, -1, 1, -this.radius/1000, this.radius/1000)
-    //   this.pos.x = this.destination.x + posOffset
-    //   this.pos.y = this.destination.y + posOffset
-    // }
-
-    const newRadius = math.mapRange(uniqueNoise, -1, 1, 0.9, 1.1)
-    this.radius = this.originalRadius * newRadius
-
-    const newStartAngle = math.mapRange(uniqueNoise, -1, 1, 0, 2*Math.PI)
+    this.lineWidth = this.originalLineWidth * lineWidthFactor
     this.startAngle = newStartAngle
-    this.endAngle = 2*Math.PI - newStartAngle
+    this.endAngle = 2 * Math.PI - newStartAngle
   }
 
 	draw(context) {
 		context.save();
     context.translate(this.pos.x, this.pos.y)
-    context.lineWidth = params.lineWidth
-    context.strokeStyle = `rgb(${this.r}, ${this.g}, ${this.b})` // this.hovered ? 'blue' :
-    // context.fillStyle = `rgb(${this.r}, ${this.g}, ${this.b})` // conditionally change colour on hover // this.hovered ? 'blue' : 
-    // context.fillStyle = `rgb(${this.r}, ${this.g}, ${this.b})`
+    context.lineWidth = this.lineWidth
+    context.strokeStyle = `rgb(${this.r}, ${this.g}, ${this.b})` // can conditionally change with this.hovered or this.settled using ternary operator
     context.beginPath()
     context.arc(0, 0, this.radius, this.startAngle, this.endAngle)
     context.stroke()
-    // context.fill()
 		context.restore();
 	}
 }
