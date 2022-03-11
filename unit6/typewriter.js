@@ -2,98 +2,104 @@ const canvasSketch = require('canvas-sketch');
 
 const settings = {
   dimensions: [ 1080, 1080 ],
-  // animate: true
+  animate: true
 };
 
 let manager
-
 let typedText = []
-let word
+let word = []
 let fontSize
-let fontFamily = 'serif'
+let typeFontSize
+let fontFamily = 'Garamond'
 let timeoutID
-let imageData
 
-let mx
-let my
-
-const typeCanvas = document.createElement('canvas');
-const typeContext = typeCanvas.getContext('2d');
+const secondCanvas = document.createElement('canvas');
+const secondContext = secondCanvas.getContext('2d');
 
 const sketch = ({ context, width, height }) => {
+  let imageData
 
-  const cell = 3;
+  const agents = []
+
+  const cell = 5;
   const cols = Math.floor(width / cell);
   const rows = Math.floor(height / cell);
   
-  fontSize = width * 0.2
-  typeFontSize = cols * 0.2
+  fontSize = width * 0.5
+  typeFontSize = cols * 0.5
 
-  typeCanvas.width  = cols;
-  typeCanvas.height = rows;
+  secondCanvas.width  = cols;
+  secondCanvas.height = rows;
 
   const numCells = cols * rows;
   
   return () => {
-
     context.fillStyle = 'black';
     context.fillRect(0, 0, width, height);
-    
-    context.fillStyle = 'white'
+
+    context.fillStyle = `rgb(201, 201, 201)` // 'white'
     context.font = `${fontSize}px ${fontFamily}`
     context.textBaseline = 'bot'
     context.textAlign = 'center'
 
-    if (word) { // if completed word then we should replace the context with typeCanvas
-      imageData = typeContext.getImageData(0, 0, cols, rows); // store typeCanvas image data
+    // draw on main context
+    context.save()
+    context.translate(width/2, height/2)
+    context.fillText(typedText.length ? typedText.join('') : word.join(''), 0, 0)
+    context.restore()
+
+    if (word.length && !agents.length) { // fill agents once using the image data of the secondContext
+
+      imageData = secondContext.getImageData(0, 0, cols, rows);
+
       for (let i = 0; i < numCells; i++) {
         const col = i % cols;
         const row = Math.floor(i / cols);
         
         const x = col * cell
         const y = row * cell
-        const r = imageData.data[i * 4 + 0] // 0123 4567 8.9.10.11
+        const r = imageData.data[i * 4 + 0]
         const g = imageData.data[i * 4 + 1]
         const b = imageData.data[i * 4 + 2]
 
-        if (r < 200) continue
+        posX = x + cell/2
+        posY = y + cell/2
 
-        context.save()
-        context.translate(width/2 + mx, height/2 + my)
-        context.fillStyle = `rgb(${r}, ${g}, ${b})`
-        context.fillRect(x, y, cell, cell)
-        context.restore()
+        agents.push(new Agent(posX, posY, { r, g, b }, cell/2))
       }
-    } else if (typedText.length) { // typedText but no word
-      // first write on typeCanvas
-      typeContext.fillStyle = 'white'
-      typeContext.font = `${typeFontSize}px ${fontFamily}`
-      typeContext.textBaseline = 'bot'
-      typeContext.textAlign = 'center'
-      
-      // clean canvas
-      typeContext.save()
-      typeContext.fillStyle = 'black';
-      typeContext.fillRect(0, 0, cols, rows);
-      typeContext.restore()
+    } else if (typedText.length) {
 
-      typeContext.save()
-      typeContext.translate(cols/2, rows/2)
-      typeContext.fillText(typedText.join(''), 0, 0)
-      typeContext.restore()
+      secondContext.fillStyle = 'white'
+      secondContext.font = `${typeFontSize}px ${fontFamily}`
+      secondContext.textBaseline = 'bot'
+      secondContext.textAlign = 'center'
 
-      context.save()
-      context.translate(width/2, height/2)
-      context.fillText(typedText.join(''), 0, 0)
-      context.restore()
+      // clean the canvas
+      secondContext.save()
+      secondContext.fillStyle = 'black';
+      secondContext.fillRect(0, 0, cols, rows);
+      secondContext.restore()
+
+      // write on secondContext using typedText
+      secondContext.save()
+      secondContext.translate(cols/2, rows/2)
+      secondContext.fillText(typedText.join(''), 0, 0)
+      secondContext.restore()
+    }
+    
+    if (agents.length) {
+      agents.forEach((agent) => {
+        agent.draw(context)
+        // agent.update()
+      })
     }
   };
 };
 
 /**
  * onKeyDown fills typedText array which is rendered to the screen immediately.
- * It is debounced so typedText gets copied into word and typedText gets cleared
- * only after inactivity. The word triggers the next animation
+ * It is debounced by a setTimeout so typedText gets copied into word/typedText gets cleared
+ * only after inactivity. truthy word triggers the next animation
  */
 const onKeyDown = (e) => {
   if (e.key == 'Backspace') { // backspace removes last char
@@ -107,13 +113,13 @@ const onKeyDown = (e) => {
   }
   manager.render()
 
-  if (timeoutID) clearTimeout(timeoutID) // clears previous keyDown timeouts to clear text
+  if (timeoutID) clearTimeout(timeoutID) // clears previous keyDown setTimeouts
 
   timeoutID = setTimeout(() => {
     word = [...typedText] // copy typedText
     typedText = []
     manager.render()
-  }, 5000)
+  }, 3000)
 }
 
 document.addEventListener('keydown', onKeyDown);
@@ -123,3 +129,39 @@ const start = async () => {
 }
 
 start()
+
+class Vector {
+	constructor(x, y) {
+		this.x = x;
+		this.y = y;
+	}
+}
+
+class Agent {
+  constructor(x, y, rgb, radius) {
+    this.pos = new Vector(x, y)
+    this.origin = new Vector(x, y)
+    this.rgb = rgb
+    this.radius = radius
+  }
+
+  draw(context) {
+    // draws black circle at origin of agent
+    context.save()
+    context.translate(this.origin.x, this.origin.y)
+    context.fillStyle = 'black'
+    context.beginPath()
+    context.arc(0, 0, this.radius, 0, 2*Math.PI)
+    context.fill()
+    context.restore()
+
+    // TODO: gravity effect on these
+    // context.save()
+    // context.translate(this.pos.x, this.pos.y)
+    // context.fillStyle = `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})`
+    // context.beginPath()
+    // context.arc(0, 0, this.radius, 0, 2*Math.PI)
+    // context.fill()
+    // context.restore()
+  }
+}
