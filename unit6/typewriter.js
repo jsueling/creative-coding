@@ -1,16 +1,22 @@
 const canvasSketch = require('canvas-sketch');
+const random = require('canvas-sketch-util/random')
+const { Pane } = require('tweakpane')
 
 const settings = {
   dimensions: [ 1080, 1080 ],
   animate: true
 };
 
+const params = {
+  divider: 540
+}
+
 let manager
 let typedText = []
 let word = []
 let fontSize
 let typeFontSize
-let fontFamily = 'Garamond'
+let fontFamily = 'Arial'
 let timeoutID
 
 const secondCanvas = document.createElement('canvas');
@@ -21,7 +27,7 @@ const sketch = ({ context, width, height }) => {
 
   const agents = []
 
-  const cell = 5;
+  const cell = 30;
   const cols = Math.floor(width / cell);
   const rows = Math.floor(height / cell);
   
@@ -34,18 +40,11 @@ const sketch = ({ context, width, height }) => {
   const numCells = cols * rows;
   
   return () => {
-    context.fillStyle = 'black';
-    context.fillRect(0, 0, width, height);
-
-    context.fillStyle = `rgb(201, 201, 201)` // 'white'
-    context.font = `${fontSize}px ${fontFamily}`
-    context.textBaseline = 'bot'
-    context.textAlign = 'center'
-
-    // draw on main context
     context.save()
-    context.translate(width/2, height/2)
-    context.fillText(typedText.length ? typedText.join('') : word.join(''), 0, 0)
+    context.fillStyle = 'grey';
+    context.fillRect(0, 0, width, params.divider);
+    context.fillStyle = 'black'
+    context.fillRect(0, params.divider, width, height - params.divider)
     context.restore()
 
     if (word.length && !agents.length) { // fill agents once using the image data of the secondContext
@@ -65,13 +64,25 @@ const sketch = ({ context, width, height }) => {
         posX = x + cell/2
         posY = y + cell/2
 
+        if (r < 100) continue
+
         agents.push(new Agent(posX, posY, { r, g, b }, cell/2))
       }
     } else if (typedText.length) {
-
+      context.fillStyle = 'white'
+      context.font = `${fontSize}px ${fontFamily}`
+      context.textBaseline = 'middle'
+      context.textAlign = 'center'
+  
+      // draw on main context
+      context.save()
+      context.translate(width/2, height/2)
+      context.fillText(typedText.length ? typedText.join('') : word.join(''), 0, 0)
+      context.restore()
+  
       secondContext.fillStyle = 'white'
       secondContext.font = `${typeFontSize}px ${fontFamily}`
-      secondContext.textBaseline = 'bot'
+      secondContext.textBaseline = 'middle'
       secondContext.textAlign = 'center'
 
       // clean the canvas
@@ -90,7 +101,7 @@ const sketch = ({ context, width, height }) => {
     if (agents.length) {
       agents.forEach((agent) => {
         agent.draw(context)
-        // agent.update()
+        agent.update()
       })
     }
   };
@@ -124,7 +135,13 @@ const onKeyDown = (e) => {
 
 document.addEventListener('keydown', onKeyDown);
 
+const createPane = () => {
+  const pane = new Pane()
+  pane.addInput(params, 'divider', { min: 0, max: 1080, step: 1})
+}
+
 const start = async () => {
+  createPane()
   manager = await canvasSketch(sketch, settings);
 }
 
@@ -143,25 +160,37 @@ class Agent {
     this.origin = new Vector(x, y)
     this.rgb = rgb
     this.radius = radius
+    this.vel = new Vector(random.range(-0.05, 0.05), random.range(0.5, 1))
+  }
+
+  update() {
+    if (this.pos.y > params.divider) { // down
+      this.pos.y += this.vel.y
+    } else { // up
+      this.pos.y -= this.vel.y
+    }
+    this.pos.x += this.vel.x // wiggle
   }
 
   draw(context) {
-    // draws black circle at origin of agent
-    context.save()
-    context.translate(this.origin.x, this.origin.y)
-    context.fillStyle = 'black'
-    context.beginPath()
-    context.arc(0, 0, this.radius, 0, 2*Math.PI)
-    context.fill()
-    context.restore()
-
-    // TODO: gravity effect on these
-    // context.save()
-    // context.translate(this.pos.x, this.pos.y)
-    // context.fillStyle = `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})`
-    // context.beginPath()
-    // context.arc(0, 0, this.radius, 0, 2*Math.PI)
-    // context.fill()
-    // context.restore()
+    if (this.pos.y > params.divider) {
+      // TODO: gravity effect on these
+      context.save()
+      context.translate(this.pos.x, this.pos.y)
+      context.fillStyle = `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})`
+      context.beginPath()
+      context.arc(0, 0, this.radius, 0, 2*Math.PI)
+      context.fill()
+      context.restore()
+    } else {
+      // draws black circle at origin of agent
+      context.save()
+      context.translate(this.pos.x, this.pos.y)
+      context.fillStyle = `rgb(${255-this.rgb.r}, ${255-this.rgb.g}, ${255-this.rgb.b})`
+      context.beginPath()
+      context.arc(0, 0, this.radius, 0, 2*Math.PI)
+      context.fill()
+      context.restore()
+    }
   }
 }
