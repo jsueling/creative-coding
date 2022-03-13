@@ -2,6 +2,12 @@ const canvasSketch = require('canvas-sketch');
 const random = require('canvas-sketch-util/random')
 const { Pane } = require('tweakpane')
 
+/**
+ * Resources:
+ * https://spicyyoghurt.com/tutorials/html5-javascript-game-development/collision-detection-physics
+ * https://www.kirupa.com/canvas/creating_motion_trails.htm
+ */
+
 const settings = {
   dimensions: [ 1080, 1080 ],
   animate: true
@@ -102,7 +108,19 @@ const sketch = ({ context, width, height }) => {
       agents.forEach((agent) => {
         agent.draw(context)
         agent.update()
+        agent.gravity(height) // TODO roll off screen
+        agent.overlap = false
       })
+
+      for (let i=0; i < agents.length; i++) {
+        for (let j=i+1; j < agents.length; j++) {
+          if (circleInstersect(agents[i], agents[j])) {
+            agents[i].overlap = true
+            agents[j].overlap = true
+          }
+        }
+      }
+
     }
   };
 };
@@ -157,40 +175,35 @@ class Vector {
 class Agent {
   constructor(x, y, rgb, radius) {
     this.pos = new Vector(x, y)
-    this.origin = new Vector(x, y)
     this.rgb = rgb
     this.radius = radius
-    this.vel = new Vector(random.range(-0.05, 0.05), random.range(0.5, 1))
+    this.vel = new Vector(random.range(-0.5, 0.5), random.range(1, 2))
+    this.overlap = false
   }
 
   update() {
-    if (this.pos.y > params.divider) { // down
-      this.pos.y += this.vel.y
-    } else { // up
-      this.pos.y -= this.vel.y
+    this.pos.y += this.pos.y > params.divider ? this.vel.y : -this.vel.y // short version
+    this.pos.x += this.vel.x
+  }
+
+  gravity(height) {
+    if (this.pos.y < this.radius || this.pos.y > height-this.radius) {
+      this.vel.y = 0
     }
-    this.pos.x += this.vel.x // wiggle
   }
 
   draw(context) {
-    if (this.pos.y > params.divider) {
-      // TODO: gravity effect on these
-      context.save()
-      context.translate(this.pos.x, this.pos.y)
-      context.fillStyle = `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})`
-      context.beginPath()
-      context.arc(0, 0, this.radius, 0, 2*Math.PI)
-      context.fill()
-      context.restore()
-    } else {
-      // draws black circle at origin of agent
-      context.save()
-      context.translate(this.pos.x, this.pos.y)
-      context.fillStyle = `rgb(${255-this.rgb.r}, ${255-this.rgb.g}, ${255-this.rgb.b})`
-      context.beginPath()
-      context.arc(0, 0, this.radius, 0, 2*Math.PI)
-      context.fill()
-      context.restore()
-    }
+    context.save()
+    context.translate(this.pos.x, this.pos.y)
+    context.fillStyle =  this.overlap ? 'red' : 'white'// this.pos.y > params.divider ? `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})` : `rgb(${255-this.rgb.r}, ${255-this.rgb.g}, ${255-this.rgb.b})`
+    context.beginPath()
+    context.arc(0, 0, this.radius, 0, 2*Math.PI)
+    context.fill()
+    context.restore()
   }
+}
+
+function circleInstersect(agent1, agent2) {
+  const squareDistance = (agent1.pos.x - agent2.pos.x)**2 + (agent1.pos.y - agent2.pos.y)**2 // dx**2 + dy**2
+  return squareDistance <= (agent1.radius + agent2.radius)**2 // sum of radii >= distance (both squared) returns boolean if circles intersect
 }
