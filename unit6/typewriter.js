@@ -72,7 +72,7 @@ const sketch = ({ context, width, height }) => {
 
         if (r < 100) continue
 
-        agents.push(new Agent(posX, posY, { r, g, b }, cell/2))
+        agents.push(new Agent(posX, posY, { r, g, b }, cell/3))
       }
     } else if (typedText.length) {
       context.fillStyle = 'white'
@@ -105,20 +105,47 @@ const sketch = ({ context, width, height }) => {
     }
     
     if (agents.length) {
-      agents.forEach((agent) => {
-        agent.draw(context)
-        agent.update()
-        agent.gravity(height) // TODO roll off screen
-        agent.overlap = false
-      })
+      // agents.forEach((agent) => {
+      //   agent.draw(context)
+      //   agent.update()
+      //   // agent.gravity(height) // TODO roll off screen
+      //   agent.overlap = false
+      // })
 
       for (let i=0; i < agents.length; i++) {
+        agents[i].update()
+        agents[i].overlap = false
+      }
+
+      for (let i=0; i < agents.length; i++) {
+        let a = agents[i]
         for (let j=i+1; j < agents.length; j++) {
-          if (circleInstersect(agents[i], agents[j])) {
-            agents[i].overlap = true
-            agents[j].overlap = true
+          let b = agents[j]
+          if (circleInstersect(a,b)) {
+            a.overlap = true
+            b.overlap = true
+
+            let vCollision = new Vector(b.pos.x - a.pos.x, b.pos.y - a.pos.y) // collision vector with magnitude
+            let distance = Math.sqrt((b.pos.x - a.pos.x)**2 + (b.pos.y - a.pos.y)**2)
+            let vCollisionNorm = new Vector(vCollision.x/distance, vCollision.y/distance) // normalized collision vector, direction only
+
+            let vRelativeVelocity = new Vector(a.vel.x - b.vel.x, a.vel.y - b.vel.y) // relative velocity vector of the 2 objects at collision
+            let speed = vRelativeVelocity.x * vCollisionNorm.x + vRelativeVelocity.y * vCollisionNorm.y // dot product of normalized collision vector and the relative velocity vector
+
+            if (speed < 0) {
+              continue
+            }
+
+            a.vel.x -= speed * vCollisionNorm.x
+            a.vel.y -= speed * vCollisionNorm.y
+            b.vel.x += speed * vCollisionNorm.x
+            b.vel.y += speed * vCollisionNorm.y
           }
         }
+      }
+
+      for (let i=0; i < agents.length; i++) {
+        agents[i].draw(context)
       }
 
     }
@@ -177,7 +204,7 @@ class Agent {
     this.pos = new Vector(x, y)
     this.rgb = rgb
     this.radius = radius
-    this.vel = new Vector(random.range(-0.5, 0.5), random.range(1, 2))
+    this.vel = new Vector(random.range(-0.1, 0.2), random.range(0.1, 0.2))
     this.overlap = false
   }
 
@@ -195,7 +222,7 @@ class Agent {
   draw(context) {
     context.save()
     context.translate(this.pos.x, this.pos.y)
-    context.fillStyle =  this.overlap ? 'red' : 'white'// this.pos.y > params.divider ? `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})` : `rgb(${255-this.rgb.r}, ${255-this.rgb.g}, ${255-this.rgb.b})`
+    context.fillStyle = this.overlap ? 'red' : 'white' // this.pos.y > params.divider ? `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})` : `rgb(${255-this.rgb.r}, ${255-this.rgb.g}, ${255-this.rgb.b})`
     context.beginPath()
     context.arc(0, 0, this.radius, 0, 2*Math.PI)
     context.fill()
@@ -203,7 +230,7 @@ class Agent {
   }
 }
 
-function circleInstersect(agent1, agent2) {
+function circleInstersect(agent1, agent2) { // returns boolean if circles intersect
   const squareDistance = (agent1.pos.x - agent2.pos.x)**2 + (agent1.pos.y - agent2.pos.y)**2 // dx**2 + dy**2
-  return squareDistance <= (agent1.radius + agent2.radius)**2 // sum of radii >= distance (both squared) returns boolean if circles intersect
+  return squareDistance <= (agent1.radius + agent2.radius)**2 // sum of radii >= distance (both squared)
 }
