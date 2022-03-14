@@ -14,7 +14,7 @@ const settings = {
 };
 
 const params = {
-  divider: 540
+  // TODO
 }
 
 let manager
@@ -25,6 +25,8 @@ let typeFontSize
 let fontFamily = 'Arial'
 let timeoutID
 
+let startTime
+
 const secondCanvas = document.createElement('canvas');
 const secondContext = secondCanvas.getContext('2d');
 
@@ -33,24 +35,22 @@ const sketch = ({ context, width, height }) => {
 
   const agents = []
 
-  const cell = 30;
+  const cell = 5;
   const cols = Math.floor(width / cell);
   const rows = Math.floor(height / cell);
   
-  fontSize = width * 0.5
-  typeFontSize = cols * 0.5
+  fontSize = width * 0.3
+  typeFontSize = cols * 0.3
 
   secondCanvas.width  = cols;
   secondCanvas.height = rows;
 
   const numCells = cols * rows;
   
-  return () => {
+  return ({ time }) => {
     context.save()
-    context.fillStyle = 'grey';
-    context.fillRect(0, 0, width, params.divider);
     context.fillStyle = 'black'
-    context.fillRect(0, params.divider, width, height - params.divider)
+    context.fillRect(0, 0, width, height)
     context.restore()
 
     if (word.length && !agents.length) { // fill agents once using the image data of the secondContext
@@ -72,8 +72,11 @@ const sketch = ({ context, width, height }) => {
 
         if (r < 100) continue
 
-        agents.push(new Agent(posX, posY, { r, g, b }, cell/3))
+        agents.push(new Agent(posX, posY, { r, g, b }, cell/2))
       }
+
+      startTime = time // begin timer
+
     } else if (typedText.length) {
       context.fillStyle = 'white'
       context.font = `${fontSize}px ${fontFamily}`
@@ -105,25 +108,21 @@ const sketch = ({ context, width, height }) => {
     }
     
     if (agents.length) {
-      // agents.forEach((agent) => {
-      //   agent.draw(context)
-      //   agent.update()
-      //   // agent.gravity(height) // TODO roll off screen
-      //   agent.overlap = false
-      // })
+
+      const restitution = 0.9
+
+      const currentTime = time-startTime // when this loop starts
 
       for (let i=0; i < agents.length; i++) {
-        agents[i].update()
-        agents[i].overlap = false
+        agents[i].update(currentTime)
       }
 
+      // object-to-object collision detection/resolution
       for (let i=0; i < agents.length; i++) {
         let a = agents[i]
         for (let j=i+1; j < agents.length; j++) {
           let b = agents[j]
-          if (circleInstersect(a,b)) {
-            a.overlap = true
-            b.overlap = true
+          if (circleInstersect(a, b)) {
 
             let vCollision = new Vector(b.pos.x - a.pos.x, b.pos.y - a.pos.y) // collision vector with magnitude
             let distance = Math.sqrt((b.pos.x - a.pos.x)**2 + (b.pos.y - a.pos.y)**2)
@@ -132,9 +131,11 @@ const sketch = ({ context, width, height }) => {
             let vRelativeVelocity = new Vector(a.vel.x - b.vel.x, a.vel.y - b.vel.y) // relative velocity vector of the 2 objects at collision
             let speed = vRelativeVelocity.x * vCollisionNorm.x + vRelativeVelocity.y * vCollisionNorm.y // dot product of normalized collision vector and the relative velocity vector
 
-            if (speed < 0) {
+            if (speed < 0) { // negative or 0 dot product we can ignore because the objects are moving away from each other
               continue
             }
+
+            speed *= restitution
 
             a.vel.x -= speed * vCollisionNorm.x
             a.vel.y -= speed * vCollisionNorm.y
@@ -144,9 +145,19 @@ const sketch = ({ context, width, height }) => {
         }
       }
 
+      // object-boundary collision detection/resolution
+      for (let i=0; i < agents.length; i++) {
+        agents[i].bounce(width, height, restitution)
+      }
+
       for (let i=0; i < agents.length; i++) {
         agents[i].draw(context)
       }
+
+      // single agent test
+      // agents[0].update(currentTime)
+      // agents[0].bounce(width, height, restitution)
+      // agents[0].draw(context)
 
     }
   };
@@ -167,14 +178,12 @@ const onKeyDown = (e) => {
     fontSize *= 0.95
     typeFontSize *= 0.95
   }
-  manager.render()
 
   if (timeoutID) clearTimeout(timeoutID) // clears previous keyDown setTimeouts
 
   timeoutID = setTimeout(() => {
     word = [...typedText] // copy typedText
     typedText = []
-    manager.render()
   }, 3000)
 }
 
@@ -182,11 +191,10 @@ document.addEventListener('keydown', onKeyDown);
 
 const createPane = () => {
   const pane = new Pane()
-  pane.addInput(params, 'divider', { min: 0, max: 1080, step: 1})
 }
 
 const start = async () => {
-  createPane()
+  // createPane()
   manager = await canvasSketch(sketch, settings);
 }
 
@@ -204,25 +212,43 @@ class Agent {
     this.pos = new Vector(x, y)
     this.rgb = rgb
     this.radius = radius
-    this.vel = new Vector(random.range(-0.1, 0.2), random.range(0.1, 0.2))
-    this.overlap = false
+    this.vel = new Vector(random.range(-0.1, 0.1), 0)
   }
 
-  update() {
-    this.pos.y += this.pos.y > params.divider ? this.vel.y : -this.vel.y // short version
+  update(currentTime) {
+    let prevTime = 0
+    const secondsPassed = currentTime - prevTime
+    prevTime = currentTime
+    const g = 9.81;
+
+    this.vel.y += g * secondsPassed * 0.01 // 0.01 * Gravitational acceleration
     this.pos.x += this.vel.x
+    this.pos.y += this.vel.y
   }
 
-  gravity(height) {
-    if (this.pos.y < this.radius || this.pos.y > height-this.radius) {
-      this.vel.y = 0
+  bounce(width, height, restitution) {
+
+    if (this.pos.x < 0 + this.radius) {
+      this.vel.x *= -1 * restitution
+      this.pos.x = this.radius
+    } else if (this.pos.x > width-this.radius) {
+      this.vel.x *= -1 * restitution
+      this.pos.x = width-this.radius
+    }
+
+    if (this.pos.y > height-this.radius) {
+      this.vel.y *= -1 * restitution
+      this.pos.y = height-this.radius
+    } else if (this.pos.y < 0 + this.radius) {
+      this.vel.y *= -1 * restitution
+      this.pos.y = this.radius
     }
   }
 
   draw(context) {
     context.save()
     context.translate(this.pos.x, this.pos.y)
-    context.fillStyle = this.overlap ? 'red' : 'white' // this.pos.y > params.divider ? `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})` : `rgb(${255-this.rgb.r}, ${255-this.rgb.g}, ${255-this.rgb.b})`
+    context.fillStyle = `rgb(${this.rgb.r}, ${this.rgb.g}, ${this.rgb.b})`
     context.beginPath()
     context.arc(0, 0, this.radius, 0, 2*Math.PI)
     context.fill()
@@ -232,5 +258,5 @@ class Agent {
 
 function circleInstersect(agent1, agent2) { // returns boolean if circles intersect
   const squareDistance = (agent1.pos.x - agent2.pos.x)**2 + (agent1.pos.y - agent2.pos.y)**2 // dx**2 + dy**2
-  return squareDistance <= (agent1.radius + agent2.radius)**2 // sum of radii >= distance (both squared)
+  return squareDistance <= (agent1.radius + agent2.radius)**2 // distance between >= sum of radii (both squared)
 }
