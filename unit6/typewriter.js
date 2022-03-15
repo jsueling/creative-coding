@@ -39,8 +39,8 @@ const sketch = ({ context, width, height }) => {
   const cols = Math.floor(width / cell);
   const rows = Math.floor(height / cell);
   
-  fontSize = width * 0.3
-  typeFontSize = cols * 0.3
+  fontSize = width * 0.05
+  typeFontSize = cols * 0.05
 
   secondCanvas.width  = cols;
   secondCanvas.height = rows;
@@ -48,12 +48,24 @@ const sketch = ({ context, width, height }) => {
   const numCells = cols * rows;
   
   return ({ time }) => {
+    const playhead = Math.round(time*10) / 10 % 1 // 0.1 => 1.0
+
+    context.fillStyle = 'white'
+    context.font = `${fontSize}px ${fontFamily}`
+    context.textBaseline = 'middle'
+    context.textAlign = 'center'
+
+    secondContext.fillStyle = 'white'
+    secondContext.font = `${typeFontSize}px ${fontFamily}`
+    secondContext.textBaseline = 'middle'
+    secondContext.textAlign = 'center'
+
     context.save()
     context.fillStyle = 'black'
     context.fillRect(0, 0, width, height)
     context.restore()
 
-    if (word.length && !agents.length) { // fill agents once using the image data of the secondContext
+    if (word.length) { // create and push agents to array using the image data of the secondContext
 
       imageData = secondContext.getImageData(0, 0, cols, rows);
 
@@ -76,25 +88,40 @@ const sketch = ({ context, width, height }) => {
       }
 
       startTime = time // begin timer
+      word = [] // clear the word to allow more agents to be created
+    }
 
-    } else if (typedText.length) {
-      context.fillStyle = 'white'
-      context.font = `${fontSize}px ${fontFamily}`
-      context.textBaseline = 'middle'
-      context.textAlign = 'center'
+    if (typedText.length) {
+
+      const text = typedText.length ? typedText.join('') : word.join('')
+      const lines = text.split("\n") // get text and split into array of lines
   
       // draw on main context
       context.save()
       context.translate(width/2, height/2)
-      context.fillText(typedText.length ? typedText.join('') : word.join(''), 0, 0)
-      context.restore()
-  
-      secondContext.fillStyle = 'white'
-      secondContext.font = `${typeFontSize}px ${fontFamily}`
-      secondContext.textBaseline = 'middle'
-      secondContext.textAlign = 'center'
 
-      // clean the canvas
+      const metrics = context.measureText(text)
+      const lineHeight = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.1 // 10% gap
+      const totalHeight = lines.length * lineHeight
+
+      let yOffset = -totalHeight/2 + lineHeight/2
+
+      for (let i = 0; i < lines.length; ++i) {
+        context.fillText(lines[i], 0, yOffset);
+
+        if (i === lines.length-1) { // blinking half second pipe on last line
+          const lastLineMetrics = context.measureText(lines[lines.length-1])
+          if (playhead < 0.5) {
+            context.fillText("|", lastLineMetrics.actualBoundingBoxRight * 1.1, yOffset)
+          }
+        }
+
+        yOffset += lineHeight
+      }
+
+      context.restore()
+
+      // clear the canvas
       secondContext.save()
       secondContext.fillStyle = 'black';
       secondContext.fillRect(0, 0, cols, rows);
@@ -103,18 +130,37 @@ const sketch = ({ context, width, height }) => {
       // write on secondContext using typedText
       secondContext.save()
       secondContext.translate(cols/2, rows/2)
-      secondContext.fillText(typedText.join(''), 0, 0)
+
+      const secondMetrics = secondContext.measureText(text)
+      const secondLineHeight = (secondMetrics.actualBoundingBoxAscent + secondMetrics.actualBoundingBoxDescent) * 1.1
+      const secondTotalHeight = lines.length * secondLineHeight
+
+      let secondYOffset = -secondTotalHeight/2 + secondLineHeight/2
+
+      for (let i = 0; i < lines.length; ++i) {
+        secondContext.fillText(lines[i], 0, secondYOffset);
+        secondYOffset += secondLineHeight
+      }
+
       secondContext.restore()
+    } else if (!word.length && !typedText.length) {
+      if (playhead < 0.5) {
+        context.save()
+        context.fillStyle = 'white'
+        context.translate(width/2, height/2)
+        context.fillText("|", 0, 0)
+        context.restore()
+      }
     }
     
     if (agents.length) {
 
       const restitution = 0.9
 
-      const currentTime = time-startTime // when this loop starts
+      const currentTime = time-startTime // when this loop starts currentTime is 0
 
       for (let i=0; i < agents.length; i++) {
-        agents[i].update(currentTime)
+        agents[i].update(currentTime, height)
       }
 
       // object-to-object collision detection/resolution
@@ -155,7 +201,7 @@ const sketch = ({ context, width, height }) => {
       }
 
       // single agent test
-      // agents[0].update(currentTime)
+      // agents[0].update(currentTime, height)
       // agents[0].bounce(width, height, restitution)
       // agents[0].draw(context)
 
@@ -171,19 +217,20 @@ const sketch = ({ context, width, height }) => {
 const onKeyDown = (e) => {
   if (e.key == 'Backspace') { // backspace removes last char
     typedText.pop()
-    fontSize /= 0.95
-    typeFontSize /= 0.95
   } else if (e.key.length === 1) { // single keys only
     typedText.push(e.key)
-    fontSize *= 0.95
-    typeFontSize *= 0.95
+  } else if (e.key == 'Enter') { // line break
+    typedText.push('\n')
   }
+
+  manager.render()
 
   if (timeoutID) clearTimeout(timeoutID) // clears previous keyDown setTimeouts
 
   timeoutID = setTimeout(() => {
     word = [...typedText] // copy typedText
     typedText = []
+    manager.play() // https://github.com/mattdesl/canvas-sketch/blob/master/docs/api.md#sketchmanager
   }, 3000)
 }
 
@@ -213,15 +260,24 @@ class Agent {
     this.rgb = rgb
     this.radius = radius
     this.vel = new Vector(random.range(-0.1, 0.1), 0)
+    this.prevTime = 0
   }
 
-  update(currentTime) {
-    let prevTime = 0
-    const secondsPassed = currentTime - prevTime
-    prevTime = currentTime
-    const g = 9.81;
+  update(currentTime, height) {
+    const secondsPassed = currentTime - this.prevTime
+    this.prevTime = currentTime
+    const g = 9.81; // Gravitational acceleration
 
-    this.vel.y += g * secondsPassed * 0.01 // 0.01 * Gravitational acceleration
+    // chaotic implementation, currentTime gets reset to 0 when the setTimeout returns
+    this.vel.y += g * secondsPassed * 0.5
+
+    // normal implementation
+    // if (this.pos.y > height-this.radius*2 && this.vel.y >= -1) { // agent should settle if its upward velocity is low enough and it is close to floor
+    //   this.vel.y = 0
+    // } else {
+    //   this.vel.y += g * secondsPassed // accelerate to the ground while off the ground
+    // }
+
     this.pos.x += this.vel.x
     this.pos.y += this.vel.y
   }
