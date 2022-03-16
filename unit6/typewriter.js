@@ -104,9 +104,9 @@ const sketch = ({ context, width, height }) => {
       const lineHeight = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.05 // 5% gap
       const totalHeight = lines.length * lineHeight
 
-      let yOffset = -totalHeight/2 + lineHeight/2
+      let yOffset = -totalHeight/2 + lineHeight/2 // yOffset begins based on total height of all lines
 
-      for (let i = 0; i < lines.length; ++i) {
+      for (let i = 0; i < lines.length; ++i) { // for each line, add yOffset for new line
         context.fillText(lines[i], 0, yOffset);
 
         if (i === lines.length-1) { // blinking half second pipe on last line
@@ -211,8 +211,8 @@ const sketch = ({ context, width, height }) => {
 
 /**
  * onKeyDown fills typedText array which is rendered to the screen immediately.
- * It is debounced by a setTimeout so typedText gets copied into word/typedText gets cleared
- * only after inactivity. truthy word triggers the next animation
+ * the setTimeout to fill word is debounced so typedText gets copied into word/typedText gets cleared
+ * only after inactivity. word.length > 0 triggers the next animation
  */
 const onKeyDown = (e) => {
   if (e.key == 'Backspace') { // backspace removes last char
