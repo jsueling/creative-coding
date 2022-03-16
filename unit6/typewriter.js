@@ -35,12 +35,12 @@ const sketch = ({ context, width, height }) => {
 
   const agents = []
 
-  const cell = 5;
+  const cell = 3;
   const cols = Math.floor(width / cell);
   const rows = Math.floor(height / cell);
   
-  fontSize = width * 0.05
-  typeFontSize = cols * 0.05
+  fontSize = width * 0.06
+  typeFontSize = cols * 0.06
 
   secondCanvas.width  = cols;
   secondCanvas.height = rows;
@@ -101,7 +101,7 @@ const sketch = ({ context, width, height }) => {
       context.translate(width/2, height/2)
 
       const metrics = context.measureText(text)
-      const lineHeight = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.1 // 10% gap
+      const lineHeight = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.05 // 5% gap
       const totalHeight = lines.length * lineHeight
 
       let yOffset = -totalHeight/2 + lineHeight/2
@@ -112,7 +112,7 @@ const sketch = ({ context, width, height }) => {
         if (i === lines.length-1) { // blinking half second pipe on last line
           const lastLineMetrics = context.measureText(lines[lines.length-1])
           if (playhead < 0.5) {
-            context.fillText("|", lastLineMetrics.actualBoundingBoxRight * 1.1, yOffset)
+            context.fillText("|", lastLineMetrics.actualBoundingBoxRight * 1.05, yOffset)
           }
         }
 
@@ -155,7 +155,7 @@ const sketch = ({ context, width, height }) => {
     
     if (agents.length) {
 
-      const restitution = 0.9
+      const restitution = 0.8
 
       const currentTime = time-startTime // when this loop starts currentTime is 0
 
@@ -231,7 +231,7 @@ const onKeyDown = (e) => {
     word = [...typedText] // copy typedText
     typedText = []
     manager.play() // https://github.com/mattdesl/canvas-sketch/blob/master/docs/api.md#sketchmanager
-  }, 3000)
+  }, 1000)
 }
 
 document.addEventListener('keydown', onKeyDown);
