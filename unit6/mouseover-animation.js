@@ -93,10 +93,11 @@ const sketch = ({ context, width, height, canvas }) => { // https://github.com/m
 		agents.push(new Agent(curX, curY, x, y, cell/2, rgb, velx, vely)) // current x,y destination x,y, radius, rgb value, vector on unit circle to reach destination
 	}
 
-  let cursor = new Cursor(0, 0) // initialize cursor
+  const cursor = new Cursor(0, 0) // initialize cursor
   
   canvas.onmousemove = (e) => { // update cursor on canvas mouse move event
-    cursor = new Cursor(e.offsetX, e.offsetY)
+    cursor.x = e.offsetX
+    cursor.y = e.offsetY
   }
 
   return ({ frame }) => {
