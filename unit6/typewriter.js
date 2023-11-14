@@ -1,6 +1,5 @@
 const canvasSketch = require('canvas-sketch');
 const random = require('canvas-sketch-util/random')
-const { Pane } = require('tweakpane')
 
 /**
  * Resources:
@@ -13,11 +12,6 @@ const settings = {
   animate: true
 };
 
-const params = {
-  // TODO
-}
-
-let manager
 let typedText = []
 let word = []
 let fontSize
@@ -27,6 +21,7 @@ let timeoutID
 
 let startTime
 
+// Second context useful for separating agents and text cursor when extracting pixel data from image
 const secondCanvas = document.createElement('canvas');
 const secondContext = secondCanvas.getContext('2d');
 
@@ -46,7 +41,7 @@ const sketch = ({ context, width, height }) => {
   secondCanvas.height = rows;
 
   const numCells = cols * rows;
-  
+
   return ({ time }) => {
     const playhead = Math.round(time*10) / 10 % 1 // 0.1 => 1.0
 
@@ -65,7 +60,7 @@ const sketch = ({ context, width, height }) => {
     context.fillRect(0, 0, width, height)
     context.restore()
 
-    if (word.length) { // create and push agents to array using the image data of the secondContext
+    if (word.length) { // after text input debounced word array is filled, create and push agents to array using the image data of the secondContext
 
       imageData = secondContext.getImageData(0, 0, cols, rows);
 
@@ -84,16 +79,15 @@ const sketch = ({ context, width, height }) => {
 
         if (r < 100) continue
 
-        agents.push(new Agent(posX, posY, { r, g, b }, cell/2))
+        agents.push(new Agent(posX, posY, { r, g, b }, cell/2, time))
       }
 
       startTime = time // begin timer
       word = [] // clear the word to allow more agents to be created
     }
 
-    if (typedText.length) {
-
-      const text = typedText.length ? typedText.join('') : word.join('')
+    if (typedText.length) { // typed text appears on screen immediately
+      const text = typedText.join('')
       const lines = text.split("\n") // get text and split into array of lines
   
       // draw on main context
@@ -157,10 +151,8 @@ const sketch = ({ context, width, height }) => {
 
       const restitution = 0.8
 
-      const currentTime = time-startTime // when this loop starts currentTime is 0
-
       for (let i=0; i < agents.length; i++) {
-        agents[i].update(currentTime, height)
+        agents[i].update(time, height)
       }
 
       // object-to-object collision detection/resolution
@@ -200,11 +192,6 @@ const sketch = ({ context, width, height }) => {
         agents[i].draw(context)
       }
 
-      // single agent test
-      // agents[0].update(currentTime, height)
-      // agents[0].bounce(width, height, restitution)
-      // agents[0].draw(context)
-
     }
   };
 };
@@ -223,26 +210,20 @@ const onKeyDown = (e) => {
     typedText.push('\n')
   }
 
-  manager.render()
 
   if (timeoutID) clearTimeout(timeoutID) // clears previous keyDown setTimeouts
 
   timeoutID = setTimeout(() => {
     word = [...typedText] // copy typedText
     typedText = []
-    manager.play() // https://github.com/mattdesl/canvas-sketch/blob/master/docs/api.md#sketchmanager
   }, 1000)
 }
 
 document.addEventListener('keydown', onKeyDown);
 
-const createPane = () => {
-  const pane = new Pane()
-}
 
-const start = async () => {
-  // createPane()
-  manager = await canvasSketch(sketch, settings);
+const start = () => {
+  canvasSketch(sketch, settings);
 }
 
 start()
@@ -255,28 +236,31 @@ class Vector {
 }
 
 class Agent {
-  constructor(x, y, rgb, radius) {
+  constructor(x, y, rgb, radius, timeCreated) {
     this.pos = new Vector(x, y)
     this.rgb = rgb
     this.radius = radius
     this.vel = new Vector(random.range(-0.1, 0.1), 0)
-    this.prevTime = 0
+    this.prevTime = timeCreated
   }
 
   update(currentTime, height) {
-    const secondsPassed = currentTime - this.prevTime
+
+    const timeBetweenFrames = currentTime - this.prevTime
     this.prevTime = currentTime
+
     const g = 9.81; // Gravitational acceleration
 
-    // chaotic implementation, currentTime gets reset to 0 when the setTimeout returns
-    this.vel.y += g * secondsPassed * 0.5
-
-    // normal implementation
-    // if (this.pos.y > height-this.radius*2 && this.vel.y >= -1) { // agent should settle if its upward velocity is low enough and it is close to floor
-    //   this.vel.y = 0
-    // } else {
-    //   this.vel.y += g * secondsPassed // accelerate to the ground while off the ground
-    // }
+    if (this.pos.y > height-this.radius*2 && this.vel.y > -0.5 && this.vel.y < 0.5 && this.vel.x < 0.5 && this.vel.x > -0.5) { // agent should settle if its velocities are low enough and it is close to floor
+      this.vel.y = 0
+      this.vel.x = 0
+    } else {
+      this.vel.y += g * timeBetweenFrames // accelerate to the ground while off the ground
+    }
+    
+    // air resistance + friction
+    this.vel.x *= 0.99
+    this.vel.y *= 0.99
 
     this.pos.x += this.vel.x
     this.pos.y += this.vel.y
